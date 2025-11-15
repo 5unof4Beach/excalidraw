@@ -49,6 +49,25 @@ const JSONExportModal = ({
   return (
     <div className="ExportDialog ExportDialog--json">
       <div className="ExportDialog-cards">
+        <Card color="yellow">
+          <div className="Card-icon">{exportToFileIcon}</div>
+          <h2>{t("exportDialog.google_drive_title")}</h2>
+          <div className="Card-details">
+            {t("exportDialog.google_drive_detail")}
+            {!nativeFileSystemSupported &&
+              actionManager.renderAction("changeProjectName")}
+          </div>
+          <ToolButton
+            className="Card-button"
+            type="button"
+            title={t("exportDialog.google_drive_button")}
+            aria-label={t("exportDialog.google_drive_button")}
+            showAriaLabel={true}
+            onClick={() => {
+              actionManager.executeAction(actionSaveFileToDisk, "ui");
+            }}
+          />
+        </Card>
         {exportOpts.saveFileToDisk && (
           <Card color="lime">
             <div className="Card-icon">{exportToFileIcon}</div>

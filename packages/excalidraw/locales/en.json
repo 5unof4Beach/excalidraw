@@ -403,7 +403,10 @@
     "link_button": "Export to Link",
     "excalidrawplus_description": "Save the scene to your Excalidraw+ workspace.",
     "excalidrawplus_button": "Export",
-    "excalidrawplus_exportError": "Couldn't export to Excalidraw+ at this moment..."
+    "excalidrawplus_exportError": "Couldn't export to Excalidraw+ at this moment...",
+    "google_drive_detail": "Save the scene to your Google Drive.",
+    "google_drive_title": "Save to Google Drive",
+    "google_drive_button": "Save to drive"
   },
   "helpDialog": {
     "blog": "Read our blog",
