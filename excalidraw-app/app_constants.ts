@@ -52,7 +52,7 @@ export const STORAGE_KEYS = {
 } as const;
 
 export const COOKIES = {
-  AUTH_STATE_COOKIE: "excplus-auth",
+  AUTH_STATE_COOKIE: "auth_excggdrive.session_token",
 } as const;
 
 export const isExcalidrawPlusSignedUser = document.cookie.includes(

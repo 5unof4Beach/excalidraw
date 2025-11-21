@@ -12,9 +12,11 @@ type TunnelsContextValue = {
   WelcomeScreenCenterTunnel: Tunnel;
   FooterCenterTunnel: Tunnel;
   DefaultSidebarTriggerTunnel: Tunnel;
+  DefaultSidebarLeftTriggerTunnel: Tunnel;
   DefaultSidebarTabTriggersTunnel: Tunnel;
   OverwriteConfirmDialogTunnel: Tunnel;
   TTDDialogTriggerTunnel: Tunnel;
+  LeftSidebar: Tunnel;
   // this can be removed once we create jotai stores per each editor
   // instance
   tunnelsJotai: ReturnType<typeof createIsolation>;
@@ -36,9 +38,11 @@ export const useInitializeTunnels = () => {
       WelcomeScreenCenterTunnel: tunnel(),
       FooterCenterTunnel: tunnel(),
       DefaultSidebarTriggerTunnel: tunnel(),
+      DefaultSidebarLeftTriggerTunnel: tunnel(),
       DefaultSidebarTabTriggersTunnel: tunnel(),
       OverwriteConfirmDialogTunnel: tunnel(),
       TTDDialogTriggerTunnel: tunnel(),
+      LeftSidebar: tunnel(),
       tunnelsJotai,
     };
   }, []);

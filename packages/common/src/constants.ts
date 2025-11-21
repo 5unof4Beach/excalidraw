@@ -428,6 +428,11 @@ export const DEFAULT_SIDEBAR = {
   defaultTab: LIBRARY_SIDEBAR_TAB,
 } as const;
 
+export const LEFT_SIDEBAR = {
+  name: "default-left",
+  defaultTab: LIBRARY_SIDEBAR_TAB,
+} as const;
+
 export const LIBRARY_DISABLED_TYPES = new Set([
   "iframe",
   "embeddable",
