@@ -111,6 +111,14 @@ export const loadFromJSON = async (
   return loadFromBlob(file, localAppState, localElements, file.handle);
 };
 
+export const loadFromJSONFile = async (
+  localAppState: AppState,
+  localElements: readonly ExcalidrawElement[] | null,
+  file: Blob,
+) => {
+  return loadFromBlob(file, localAppState, localElements, file.handle);
+};
+
 export const isValidExcalidrawData = (data?: {
   type?: any;
   elements?: any;

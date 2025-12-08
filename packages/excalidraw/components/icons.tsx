@@ -2373,3 +2373,84 @@ export const presentationIcon = createIcon(
   </g>,
   tablerIconProps,
 );
+
+export const CloudCheckIcon = createIcon(
+  <svg fill="#000000" viewBox="0 0 64 64" enableBackground="new 0 0 64 64">
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g
+      id="SVGRepo_tracerCarrier"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    ></g>
+    <g id="SVGRepo_iconCarrier">
+      {" "}
+      <g>
+        {" "}
+        <path d="M12,52h42c5.514,0,10-4.486,10-10c0-4.855-3.479-8.914-8.074-9.814C55,20.901,45.52,12,34,12 c-10.224,0-19.043,6.635-21.591,16H12C5.383,28,0,33.383,0,40S5.383,52,12,52z M12,32h2c0.962,0,1.788-0.685,1.966-1.63 C17.53,22.043,25.115,16,34,16c9.925,0,18,8.075,18,18c0,1.104,0.896,2,2,2c3.309,0,6,2.691,6,6s-2.691,6-6,6H12 c-4.411,0-8-3.589-8-8S7.589,32,12,32z"></path>{" "}
+        <path d="M28.586,41.414C28.977,41.805,29.488,42,30,42s1.023-0.195,1.414-0.586l10-10c0.781-0.781,0.781-2.047,0-2.828 c-0.781-0.781-2.047-0.781-2.828,0L30,37.171l-4.586-4.585c-0.781-0.781-2.047-0.781-2.828,0c-0.781,0.781-0.781,2.047,0,2.828 L28.586,41.414z"></path>{" "}
+      </g>{" "}
+    </g>
+  </svg>,
+  tablerIconProps,
+);
+export const CloudOffIcon = createIcon(
+  <svg
+    fill="#000000"
+    version="1.1"
+    id="Ebene_1"
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 64 64"
+    enableBackground="new 0 0 64 64"
+  >
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g
+      id="SVGRepo_tracerCarrier"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    ></g>
+    <g id="SVGRepo_iconCarrier">
+      {" "}
+      <g>
+        {" "}
+        <path d="M12,52h42c5.514,0,10-4.486,10-10c0-4.855-3.479-8.914-8.074-9.814C55,20.901,45.52,12,34,12 c-10.224,0-19.043,6.635-21.591,16H12C5.383,28,0,33.383,0,40S5.383,52,12,52z M12,32h2c0.962,0,1.788-0.685,1.966-1.63 C17.53,22.043,25.115,16,34,16c9.925,0,18,8.075,18,18c0,1.104,0.896,2,2,2c3.309,0,6,2.691,6,6s-2.691,6-6,6H12 c-4.411,0-8-3.589-8-8S7.589,32,12,32z"></path>{" "}
+        <path d="M28.586,41.414C28.977,41.805,29.488,42,30,42s1.023-0.195,1.414-0.586l10-10c0.781-0.781,0.781-2.047,0-2.828 c-0.781-0.781-2.047-0.781-2.828,0L30,37.171l-4.586-4.585c-0.781-0.781-2.047-0.781-2.828,0c-0.781,0.781-0.781,2.047,0,2.828 L28.586,41.414z"></path>{" "}
+      </g>{" "}
+    </g>
+  </svg>,
+  tablerIconProps,
+);
+export const CloudIcon = createIcon(
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
+    <g
+      id="SVGRepo_tracerCarrier"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    ></g>
+    <g id="SVGRepo_iconCarrier">
+      {" "}
+      <path
+        d="M21.96 13.4199C21.8233 12.3214 21.326 11.2993 20.546 10.5139C19.766 9.72844 18.7474 9.22406 17.65 9.07977C17.1768 7.75468 16.2529 6.63824 15.0399 5.92523C13.8269 5.21223 12.4019 4.94801 11.0139 5.17914C9.62597 5.41026 8.36341 6.12202 7.4469 7.18964C6.53039 8.25726 6.01826 9.61302 6 11.02C4.93913 11.02 3.92172 11.4412 3.17157 12.1913C2.42142 12.9415 2 13.9591 2 15.02C2 16.0808 2.42142 17.0982 3.17157 17.8483C3.92172 18.5985 4.93913 19.02 6 19.02H12"
+        stroke="#000000"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      ></path>{" "}
+      <path
+        d="M18.7793 23V15"
+        stroke="#000000"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      ></path>{" "}
+      <path
+        d="M15.5801 18.2L18.7801 15L21.98 18.2"
+        stroke="#000000"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      ></path>{" "}
+    </g>
+  </svg>,
+  tablerIconProps,
+);

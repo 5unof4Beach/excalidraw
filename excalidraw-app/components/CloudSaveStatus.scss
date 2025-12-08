@@ -1,0 +1,126 @@
+.cloud-save-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 1rem;
+  background-color: var(--color-surface-low);
+  border-radius: var(--border-radius-md, 8px);
+  border: 1px solid var(--color-border);
+
+  font-family: var(--ui-font);
+  font-size: 0.875rem;
+
+  .cloud-save-status__content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .cloud-save-status__name {
+    flex: 1;
+    padding: 0;
+    cursor: pointer;
+    color: var(--color-text-primary);
+    font-size: inherit;
+    font-family: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 0.2s ease;
+    max-width: 1365px;
+
+    &:hover {
+      opacity: 0.7;
+    }
+
+    &:active {
+      opacity: 0.5;
+    }
+  }
+
+  .cloud-save-status__input {
+    height: 20px;
+    line-height: 22px;
+    padding: 0 0.25rem !important;
+    background-color: var(--color-surface-low) !important;
+    border-color: var(--color-surface-low) !important;
+    font-size: 0.8333rem !important;
+    font-weight: 500 !important;
+
+    &:hover {
+      border-color: #747775 !important;
+    }
+
+    &:focus {
+      border-color: var(--color-primary) !important;
+      box-shadow: 0 0 0 2px var(--color-primary-light) !important;
+      background-color: white !important;
+      font-weight: lighter !important;
+    }
+  }
+
+  .cloud-save-status__status {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  .cloud-save-status__icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+
+    &--saving {
+      animation: spin 1s linear infinite;
+      color: var(--color-warning);
+    }
+
+    &--saved {
+      color: var(--color-success, #52c41a);
+    }
+
+    &--error {
+      color: var(--color-error, #ff4d4f);
+    }
+
+    &--idle {
+      color: var(--color-text-tertiary);
+      opacity: 0.5;
+    }
+  }
+
+  .cloud-save-status__status-text {
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+  }
+
+  .cloud-save-status__status--saved {
+    .cloud-save-status__status-text {
+      color: var(--color-success, #52c41a);
+    }
+  }
+
+  .cloud-save-status__status--error {
+    .cloud-save-status__status-text {
+      color: var(--color-error, #ff4d4f);
+    }
+  }
+
+  .cloud-save-status__status--saving {
+    .cloud-save-status__status-text {
+      color: var(--color-warning);
+    }
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}

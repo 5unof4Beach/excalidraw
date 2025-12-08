@@ -29,6 +29,8 @@ import { getExportSize } from "../scene/export";
 
 import "../components/ToolIcon.scss";
 
+import { loadFromJSONFile } from "../data/json";
+
 import { register } from "./register";
 
 export const actionChangeProjectName = register({
@@ -266,6 +268,43 @@ export const actionLoadScene = register({
         appState: loadedAppState,
         files,
       } = await loadFromJSON(appState, elements);
+      return {
+        elements: loadedElements,
+        appState: loadedAppState,
+        files,
+        captureUpdate: CaptureUpdateAction.IMMEDIATELY,
+      };
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        console.warn(error);
+        return false;
+      }
+      return {
+        elements,
+        appState: { ...appState, errorMessage: error.message },
+        files: app.files,
+        captureUpdate: CaptureUpdateAction.EVENTUALLY,
+      };
+    }
+  },
+  keyTest: (event) => event[KEYS.CTRL_OR_CMD] && event.key === KEYS.O,
+});
+export const actionLoadSceneFromFile = register({
+  name: "loadSceneFromFile",
+  label: "buttons.load",
+  trackEvent: { category: "export" },
+  predicate: (elements, appState, props, app) => {
+    return (
+      !!app.props.UIOptions.canvasActions.loadScene && !appState.viewModeEnabled
+    );
+  },
+  perform: async (elements, appState, file: Blob, app) => {
+    try {
+      const {
+        elements: loadedElements,
+        appState: loadedAppState,
+        files,
+      } = await loadFromJSONFile(appState, elements, file);
       return {
         elements: loadedElements,
         appState: loadedAppState,

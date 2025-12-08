@@ -1,9 +1,11 @@
 import clsx from "clsx";
 import React from "react";
+import { createPortal } from "react-dom";
 
 import {
   CLASSES,
   DEFAULT_SIDEBAR,
+  LEFT_SIDEBAR,
   TOOL_TYPE,
   arrayToMap,
   capitalizeString,
@@ -18,15 +20,19 @@ import { ShapeCache } from "@excalidraw/element";
 
 import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
 
-import { actionToggleStats } from "../actions";
+import { actionChangeProjectName, actionToggleStats } from "../actions";
 import { trackEvent } from "../analytics";
 import { isHandToolActive } from "../appState";
 import { TunnelsContext, useInitializeTunnels } from "../context/tunnels";
 import { UIAppStateContext } from "../context/ui-appState";
 import { useAtom, useAtomValue } from "../editor-jotai";
+import { useAtomValue as useAppAtomValue } from "../../../excalidraw-app/app-jotai";
 
 import { t } from "../i18n";
 import { calculateScrollCenter } from "../scene";
+
+import { AppSidebarLeft } from "../../../excalidraw-app/components/AppSidebarLeft";
+import CloudSaveStatus from "../../../excalidraw-app/components/CloudSaveStatus";
 
 import {
   SelectedShapeActions,
@@ -47,7 +53,7 @@ import MainMenu from "./main-menu/MainMenu";
 import { ActiveConfirmDialog } from "./ActiveConfirmDialog";
 import { useEditorInterface, useStylesPanelMode } from "./App";
 import { OverwriteConfirmDialog } from "./OverwriteConfirm/OverwriteConfirm";
-import { sidebarRightIcon } from "./icons";
+import { pencilIcon, sidebarRightIcon } from "./icons";
 import { DefaultSidebar } from "./DefaultSidebar";
 import { TTDDialog } from "./TTDDialog/TTDDialog";
 import { Stats } from "./Stats";
@@ -63,6 +69,8 @@ import { Island } from "./Island";
 import { JSONExportDialog } from "./JSONExportDialog";
 import { LaserPointerButton } from "./LaserPointerButton";
 
+import { DefaultSidebarLeft } from "./DefaultSidebarLeft";
+
 import "./LayerUI.scss";
 import "./Toolbar.scss";
 
@@ -77,6 +85,11 @@ import type {
   UIAppState,
   AppClassProperties,
 } from "../types";
+import {
+  currentFileId,
+  googleDriveAuthAtom,
+  updateGoogleDriveFile,
+} from "excalidraw-app/data/googleDrive";
 
 interface LayerUIProps {
   actionManager: ActionManager;
@@ -300,10 +313,12 @@ const LayerUI = ({
     return (
       <FixedSideContainer side="top">
         <div className="App-menu App-menu_top">
-          <Stack.Col
+          <Stack.Row
             gap={spacing.menuTopGap}
             className={clsx("App-menu_top__left")}
           >
+            <tunnels.DefaultSidebarLeftTriggerTunnel.Out />
+            <tunnels.CloudSaveStatus.Out />
             {renderCanvasActions()}
             <div
               className={clsx("selected-shape-actions-container", {
@@ -313,7 +328,7 @@ const LayerUI = ({
             >
               {shouldRenderSelectedShapeActions && renderSelectedShapeActions()}
             </div>
-          </Stack.Col>
+          </Stack.Row>
           {!appState.viewModeEnabled &&
             appState.openDialog?.name !== "elementLinkSelector" && (
               <Section heading="shapes" className="shapes-section">
@@ -459,6 +474,8 @@ const LayerUI = ({
   };
 
   const isSidebarDocked = useAtomValue(isSidebarDockedAtom);
+  const authManager = useAppAtomValue(googleDriveAuthAtom);
+  const drawingId = useAppAtomValue(currentFileId);
 
   const layerUIJSX = (
     <>
@@ -468,7 +485,11 @@ const LayerUI = ({
       {children}
       {/* render component fallbacks. Can be rendered anywhere as they'll be
           tunneled away. We only render tunneled components that actually
-        have defaults when host do not render anything. */}
+          have defaults when host do not render anything. */}
+      {(() => {
+        const root = document.getElementById("left-sb-root");
+        return root ? createPortal(<tunnels.LeftSidebar.Out />, root) : null;
+      })()}
       <DefaultMainMenu UIOptions={UIOptions} />
       <DefaultSidebar.Trigger
         __fallback
@@ -486,6 +507,46 @@ const LayerUI = ({
           }
         }}
         tab={DEFAULT_SIDEBAR.defaultTab}
+      />
+      <AppSidebarLeft
+        elements={elements}
+        appState={appState}
+        app={app}
+        actionManager={actionManager}
+      />
+      <DefaultSidebarLeft.Trigger
+        __fallback
+        icon={pencilIcon}
+        title={capitalizeString(t("toolBar.library"))}
+        onToggle={(open) => {
+          if (open) {
+            trackEvent(
+              "sidebar",
+              `${LEFT_SIDEBAR.name} (open)`,
+              `button (${
+                editorInterface.formFactor === "phone" ? "mobile" : "desktop"
+              })`,
+            );
+          }
+        }}
+      />
+      <CloudSaveStatus
+        fileName={appState.name || "Untitled"}
+        onNameChange={function (newName: string): void {
+          actionManager.executeAction(actionChangeProjectName, "ui", newName);
+          if (!authManager || !drawingId) {
+            return;
+          }
+
+          updateGoogleDriveFile(
+            authManager,
+            drawingId,
+            elements,
+            appState,
+            app.files,
+          ).then((result) => {});
+        }}
+        status={"saving"}
       />
       <DefaultOverwriteConfirmDialog />
       {appState.openDialog?.name === "ttd" && <TTDDialog __fallback />}
