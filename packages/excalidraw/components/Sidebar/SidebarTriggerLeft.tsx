@@ -40,6 +40,9 @@ export const SidebarTriggerLeft = ({
         checked={!appState.openSidebarLeft.isOpen}
         aria-label={title}
         aria-keyshortcuts="0"
+        onClickCapture={(e) => {
+          e.preventDefault();
+        }}
       />
       <div className={clsx("sidebar-trigger", className)} style={style}>
         {icon && <div>{icon}</div>}

@@ -7,27 +7,31 @@ import {
 } from "@excalidraw/excalidraw/components/icons";
 import { useTunnels } from "@excalidraw/excalidraw/context/tunnels";
 
-import "./CloudSaveStatus.scss";
+import { useAtomValue } from "excalidraw-app/app-jotai";
+import {
+  GoogleDrive,
+  googleDriveSaveStatusAtom,
+} from "excalidraw-app/data/googleDrive";
 
-type SaveStatus = "idle" | "saving" | "saved" | "error";
+import "./CloudSaveStatus.scss";
+import Spinner from "@excalidraw/excalidraw/components/Spinner";
 
 interface CloudSaveStatusProps {
   fileName: string;
   onNameChange: (newName: string) => void;
-  status: SaveStatus;
   lastSavedTime?: Date;
 }
 
 const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
   fileName,
   onNameChange,
-  status,
   lastSavedTime,
 }) => {
   const { CloudSaveStatus } = useTunnels();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(fileName);
+  const status = useAtomValue(googleDriveSaveStatusAtom);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -37,8 +41,6 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.click();
-      inputRef.current.select();
     }
   }, [isEditing, inputRef]);
 
@@ -50,19 +52,22 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSave();
-    } else if (e.key === "Escape") {
+    if (e.key === "Escape") {
+      inputRef.current?.blur();
       setEditedName(fileName);
       setIsEditing(false);
+    } else if (e.key === "Enter") {
+      inputRef.current?.blur();
     }
   };
 
   const getStatusIcon = () => {
     switch (status) {
       case "saving":
-        return CloudIcon;
+        return <Spinner />;
       case "saved":
+        return CloudIcon;
+      case "idle":
         return CloudCheckIcon;
       case "error":
         return CloudOffIcon;
@@ -88,9 +93,14 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
 
   return (
     <CloudSaveStatus.In>
-      <div className="cloud-save-status">
+      <div
+        className="cloud-save-status"
+        onClickCapture={(e) => {
+          e.preventDefault();
+          GoogleDrive.pauseSave("googleDrive");
+        }}
+      >
         <div className="cloud-save-status__content">
-          {/* {isEditing ? ( */}
           <input
             ref={inputRef}
             type="text"
@@ -98,19 +108,13 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
             onChange={(e) => setEditedName(e.target.value)}
             onBlur={handleSave}
             onKeyDown={handleKeyDown}
+            onClickCapture={(e) => {
+              GoogleDrive.pauseSave("googleDrive");
+            }}
             className="cloud-save-status__input"
             placeholder="Enter file name"
             id="drawing-title"
           />
-          {/* ) : (
-            <span
-              className="cloud-save-status__name"
-              onClick={() => setIsEditing(true)}
-              title="Click to edit name"
-            >
-              {fileName}
-            </span>
-          )} */}
         </div>
 
         <div
@@ -119,13 +123,7 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
             `cloud-save-status__status--${status}`,
           )}
         >
-          {/* {getStatusIcon()} */}
           <div className="cloud-save-status__icon">{getStatusIcon()}</div>
-          {getStatusText() && (
-            <span className="cloud-save-status__status-text">
-              {/* {getStatusText()} */}
-            </span>
-          )}
         </div>
       </div>
     </CloudSaveStatus.In>

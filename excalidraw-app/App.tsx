@@ -141,6 +141,12 @@ import "./index.scss";
 import { AppSidebar } from "./components/AppSidebar";
 import { ExcalidrawSignin } from "./components/ExcalidrawSignin";
 
+import {
+  googleDriveSaveStatusAtom,
+  handleGoogleDriveUpdate,
+  GoogleDrive,
+} from "./data/googleDrive";
+
 import type { CollabAPI } from "./collab/Collab";
 
 polyfill();
@@ -673,6 +679,18 @@ const ExcalidrawWrapper = () => {
         window.devicePixelRatio,
       );
     }
+
+    // Use appJotaiStore.get(...) to get the latest value inside this hot path without
+    // causing re-renders.
+    if (!GoogleDrive.isSavePaused()) {
+      const googleDriveUpdateStatus = appJotaiStore.get(
+        googleDriveSaveStatusAtom,
+      );
+      if (googleDriveUpdateStatus === "idle") {
+        const fn = appJotaiStore.get(handleGoogleDriveUpdate);
+        fn?.();
+      }
+    }
   };
 
   const [latestShareableLink, setLatestShareableLink] = useState<string | null>(
@@ -801,13 +819,7 @@ const ExcalidrawWrapper = () => {
 
   return (
     <>
-      <div
-        id="left-sb-root"
-        style={{
-          ["--right-sidebar-width" as any]: "302px",
-          ["--space-factor" as any]: "0.25rem",
-        }}
-      ></div>
+      <div className="left-sb-root"></div>
       <div
         style={{ height: "100%", marginLeft: 320 }}
         className={clsx("excalidraw-app", {

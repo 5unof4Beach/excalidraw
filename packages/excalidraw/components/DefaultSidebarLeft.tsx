@@ -1,10 +1,6 @@
 import clsx from "clsx";
 
-import {
-  CANVAS_SEARCH_TAB,
-  LEFT_SIDEBAR,
-  composeEventHandlers,
-} from "@excalidraw/common";
+import { CANVAS_SEARCH_TAB, LEFT_SIDEBAR } from "@excalidraw/common";
 
 import type { MarkOptional, Merge } from "@excalidraw/common/utility-types";
 

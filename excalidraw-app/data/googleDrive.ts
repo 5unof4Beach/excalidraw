@@ -11,6 +11,7 @@ import { MIME_TYPES } from "@excalidraw/common";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { BinaryFiles, UIAppState } from "@excalidraw/excalidraw/types";
+import { Locker } from "./Locker";
 
 interface GoogleDriveAuthState {
   accessToken: string | null;
@@ -61,7 +62,7 @@ export const saveToGoogleDrive = async (
       throw new Error("No access token");
     }
 
-    const serialized = serializeAsJSON(elements, appState, files, "local");
+    const serialized = serializeAsJSON(elements, appState, files, "database");
     const blob = new Blob([serialized], {
       type: MIME_TYPES.excalidraw,
     });
@@ -69,8 +70,8 @@ export const saveToGoogleDrive = async (
     const boundary = `boundary_excali_drive`;
     const metadata = JSON.stringify({
       name:
-        `${appState.name}.excalidraw` ||
         `${name}.excalidraw` ||
+        `${appState.name}.excalidraw` ||
         "Untitled.excalidraw",
       mimeType: MIME_TYPES.excalidraw,
     });
@@ -166,6 +167,8 @@ export const updateGoogleDriveFile = async (
   elements: readonly ExcalidrawElement[],
   appState: UIAppState,
   files: BinaryFiles,
+  name?: string,
+  thumbnailBlob?: Blob,
 ): Promise<{ success: boolean; fileId?: string; error?: Error }> => {
   try {
     const accessToken = authManager.getAccessToken();
@@ -179,9 +182,28 @@ export const updateGoogleDriveFile = async (
     });
 
     const boundary = `boundary_excali_drive`;
-    const metadata = JSON.stringify({
+
+    // Build metadata with optional thumbnail
+    const metadataObj: any = {
+      name: `${name || appState.name}.excalidraw`,
       mimeType: MIME_TYPES.excalidraw,
-    });
+    };
+
+    // Add thumbnail if provided
+    if (thumbnailBlob) {
+      const thumbnailData = await thumbnailBlob.arrayBuffer();
+      const base64Thumbnail = btoa(
+        String.fromCharCode(...new Uint8Array(thumbnailData)),
+      );
+      metadataObj.contentHints = {
+        thumbnail: {
+          image: base64Thumbnail,
+          mimeType: thumbnailBlob.type || "image/png",
+        },
+      };
+    }
+
+    const metadata = JSON.stringify(metadataObj);
 
     const body = new Uint8Array(
       await new Blob([
@@ -243,6 +265,7 @@ export const listGoogleDriveFiles = async (
     name: string;
     modifiedTime: string;
     mimeType: string;
+    thumbnailLink?: string;
   }>;
   nextPageToken?: string;
   error?: Error;
@@ -257,7 +280,7 @@ export const listGoogleDriveFiles = async (
       // Consider adding 'appDataFolder' in parents and
       q: "name contains '.excalidraw' and trashed=false",
       fields:
-        "files(id,name,mimeType,modifiedTime,parents,owners,appProperties), nextPageToken",
+        "files(id,name,mimeType,modifiedTime,parents,owners,appProperties, thumbnailLink), nextPageToken",
       pageSize: pageSize.toString(),
       ...(pageToken && { pageToken }),
       orderBy: "modifiedTime desc",
@@ -290,6 +313,24 @@ export const listGoogleDriveFiles = async (
   }
 };
 
+type SavingLockTypes = "googleDrive";
+
+export class GoogleDrive {
+  private static locker = new Locker<SavingLockTypes>();
+
+  static pauseSave = (lockType: SavingLockTypes) => {
+    this.locker.lock(lockType);
+  };
+
+  static resumeSave = (lockType: SavingLockTypes) => {
+    this.locker.unlock(lockType);
+  };
+
+  static isSavePaused = () => {
+    return this.locker.isLocked();
+  };
+}
+
 export const googleDriveAuthAtom = atom<GoogleDriveAuthManager | null>(null);
 export const googleDriveFilesAtom = atom<
   Array<{
@@ -299,8 +340,9 @@ export const googleDriveFilesAtom = atom<
     mimeType: string;
   }>
 >([]);
-export const currentFileId = atom<string | null>(null);
+export const currentFile = atom<{ id: string; name: string } | null>(null);
 export const googleDriveSaveStatusAtom = atom<
   "idle" | "saving" | "saved" | "error"
 >("idle");
 export const googleDriveLastSavedAtom = atom<Date | null>(null);
+export const handleGoogleDriveUpdate = atom<(() => void) | null>(null);

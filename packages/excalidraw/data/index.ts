@@ -214,3 +214,42 @@ export const exportCanvas = async (
     throw new Error("Unsupported export type");
   }
 };
+
+export const generateThumbnail = async (
+  elements: ExportedElements,
+  appState: AppState,
+  files: BinaryFiles,
+  {
+    exportBackground,
+    exportPadding = DEFAULT_EXPORT_PADDING,
+    viewBackgroundColor,
+    exportingFrame = null,
+  }: {
+    exportBackground: boolean;
+    exportPadding?: number;
+    viewBackgroundColor: string;
+    exportingFrame: ExcalidrawFrameLikeElement | null;
+  },
+): Promise<Blob> => {
+  const tempCanvas = exportToCanvas(elements, appState, files, {
+    exportBackground,
+    viewBackgroundColor,
+    exportPadding,
+    exportingFrame,
+  });
+
+  let blob = canvasToBlob(tempCanvas);
+
+  // if (appState.exportEmbedScene) {
+  //   blob = blob.then((blob) =>
+  //     import("./image").then(({ encodePngMetadata }) =>
+  //       encodePngMetadata({
+  //         blob,
+  //         metadata: serializeAsJSON(elements, appState, files, "local"),
+  //       }),
+  //     ),
+  //   );
+  // }
+
+  return blob;
+};

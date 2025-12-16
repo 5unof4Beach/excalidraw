@@ -298,13 +298,21 @@ export const actionLoadSceneFromFile = register({
       !!app.props.UIOptions.canvasActions.loadScene && !appState.viewModeEnabled
     );
   },
-  perform: async (elements, appState, file: Blob, app) => {
+  perform: async (
+    elements,
+    appState,
+    data: { file: Blob; name: string },
+    app,
+  ) => {
     try {
+      const { file, name } = data;
+
       const {
         elements: loadedElements,
         appState: loadedAppState,
         files,
-      } = await loadFromJSONFile(appState, elements, file);
+      } = await loadFromJSONFile({ ...appState, name }, elements, file);
+
       return {
         elements: loadedElements,
         appState: loadedAppState,

@@ -30,7 +30,7 @@ import { SidebarPropsContext } from "./common";
 import { SidebarTabs } from "./SidebarTabs";
 import { SidebarTab } from "./SidebarTab";
 
-import "./Sidebar.scss";
+import "./SidebarLeft.scss";
 
 import { SidebarTriggerLeft } from "./SidebarTriggerLeft";
 
@@ -106,7 +106,7 @@ export const SidebarInner = forwardRef(
       if (isDialogOpen) {
         return;
       }
-      setAppState({ openSidebar: null });
+      // setAppState({ openSidebar: null });
     }, [setAppState]);
 
     useOutsideClick(

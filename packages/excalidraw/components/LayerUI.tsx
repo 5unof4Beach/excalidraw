@@ -85,8 +85,9 @@ import type {
   UIAppState,
   AppClassProperties,
 } from "../types";
+
 import {
-  currentFileId,
+  currentFile,
   googleDriveAuthAtom,
   updateGoogleDriveFile,
 } from "excalidraw-app/data/googleDrive";
@@ -474,8 +475,7 @@ const LayerUI = ({
   };
 
   const isSidebarDocked = useAtomValue(isSidebarDockedAtom);
-  const authManager = useAppAtomValue(googleDriveAuthAtom);
-  const drawingId = useAppAtomValue(currentFileId);
+  const currentDrawing = useAppAtomValue(currentFile);
 
   const layerUIJSX = (
     <>
@@ -487,7 +487,7 @@ const LayerUI = ({
           tunneled away. We only render tunneled components that actually
           have defaults when host do not render anything. */}
       {(() => {
-        const root = document.getElementById("left-sb-root");
+        const root = document.getElementsByClassName("left-sb-root")[0];
         return root ? createPortal(<tunnels.LeftSidebar.Out />, root) : null;
       })()}
       <DefaultMainMenu UIOptions={UIOptions} />
@@ -530,24 +530,14 @@ const LayerUI = ({
           }
         }}
       />
-      <CloudSaveStatus
-        fileName={appState.name || "Untitled"}
-        onNameChange={function (newName: string): void {
-          actionManager.executeAction(actionChangeProjectName, "ui", newName);
-          if (!authManager || !drawingId) {
-            return;
-          }
-
-          updateGoogleDriveFile(
-            authManager,
-            drawingId,
-            elements,
-            appState,
-            app.files,
-          ).then((result) => {});
-        }}
-        status={"saving"}
-      />
+      {currentDrawing && (
+        <CloudSaveStatus
+          fileName={currentDrawing.name}
+          onNameChange={function (newName: string): void {
+            actionManager.executeAction(actionChangeProjectName, "ui", newName);
+          }}
+        />
+      )}
       <DefaultOverwriteConfirmDialog />
       {appState.openDialog?.name === "ttd" && <TTDDialog __fallback />}
       {/* ------------------------------------------------------------------ */}
