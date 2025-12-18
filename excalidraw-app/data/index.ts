@@ -315,7 +315,7 @@ export const exportToBackend = async (
 
     const response = await fetch(BACKEND_V2_POST, {
       method: "POST",
-      body: payload.buffer,
+      body: payload.buffer as any,
     });
     const json = await response.json();
     if (json.id) {

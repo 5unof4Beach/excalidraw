@@ -71,15 +71,15 @@ export const encryptData = async (
       iv,
     },
     importedKey,
-    buffer as ArrayBuffer | Uint8Array,
+    buffer as ArrayBuffer | Uint8Array | any,
   );
 
   return { encryptedBuffer, iv };
 };
 
 export const decryptData = async (
-  iv: Uint8Array,
-  encrypted: Uint8Array | ArrayBuffer,
+  iv: Uint8Array | any,
+  encrypted: Uint8Array | ArrayBuffer | any,
   privateKey: string,
 ): Promise<ArrayBuffer> => {
   const key = await getCryptoKey(privateKey, "decrypt");

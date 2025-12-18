@@ -473,7 +473,7 @@ export class API {
 
   static loadFile = async (filepath: string) => {
     const { base, ext } = path.parse(filepath);
-    return new File([await API.readFile(filepath, null)], base, {
+    return new File([(await API.readFile(filepath, null) as any)], base, {
       type: getMimeType(ext),
     });
   };
