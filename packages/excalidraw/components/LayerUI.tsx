@@ -86,11 +86,8 @@ import type {
   AppClassProperties,
 } from "../types";
 
-import {
-  currentFile,
-  googleDriveAuthAtom,
-  updateGoogleDriveFile,
-} from "excalidraw-app/data/googleDrive";
+import { currentFile } from "excalidraw-app/data/googleDrive";
+import { leftSidebarStateAtom } from "./Sidebar/sidebar-left-state";
 
 interface LayerUIProps {
   actionManager: ActionManager;
@@ -189,7 +186,7 @@ const LayerUI = ({
         collabMarginLeft: 8,
       }
     : {
-        menuTopGap: 6,
+        menuTopGap: 3,
         toolbarColGap: 4,
         toolbarRowGap: 1,
         toolbarInnerRowGap: 1,
@@ -476,6 +473,7 @@ const LayerUI = ({
 
   const isSidebarDocked = useAtomValue(isSidebarDockedAtom);
   const currentDrawing = useAppAtomValue(currentFile);
+  const { isOpen: isLeftSidebarOpen } = useAppAtomValue(leftSidebarStateAtom);
 
   const layerUIJSX = (
     <>
@@ -652,9 +650,26 @@ const LayerUI = ({
             style={
               appState.openSidebar &&
               isSidebarDocked &&
-              editorInterface.canFitSidebar
+              editorInterface.canFitSidebar &&
+              !isLeftSidebarOpen
                 ? { width: `calc(100% - var(--right-sidebar-width))` }
-                : {}
+                : appState.openSidebar &&
+                  isSidebarDocked &&
+                  editorInterface.canFitSidebar &&
+                  isLeftSidebarOpen
+                ? {
+                    width: `calc(100% - var(--right-sidebar-width) - 300px)`,
+                    marginLeft: "300px",
+                  }
+                : isLeftSidebarOpen
+                ? {
+                    width: `calc(100% - 300px)`,
+                    marginLeft: "300px",
+                  }
+                : {
+                    width: "100%",
+                    marginLeft: "0",
+                  }
             }
           >
             {renderWelcomeScreen && <tunnels.WelcomeScreenCenterTunnel.Out />}

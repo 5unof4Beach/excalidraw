@@ -1,17 +1,44 @@
 import axios from "axios";
-import { getAccessToken, signOut } from "./auth-client";
+
+import { getAccessToken, logOut } from "./auth-client";
 
 const axiosClient = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || "",
   timeout: 10000,
 });
+
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+// Function to subscribe to token refresh
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb);
+};
+
+// Function to notify subscribers with new token
+const onRefreshed = (token: string) => {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+};
+
+// Helper to get token from localStorage or fetch if not present
+const getStoredToken = async (): Promise<string | undefined> => {
+  let token = localStorage.getItem("accessToken") || undefined;
+  if (!token) {
+    const tokenData = await getAccessToken({ providerId: "google" });
+    token = tokenData?.data?.accessToken;
+    if (token) {
+      localStorage.setItem("accessToken", token);
+    }
+  }
+  return token;
+};
 
 // Request interceptor - add auth token
 axiosClient.interceptors.request.use(
   async (config) => {
-    const tokenData = await getAccessToken({ providerId: "google" });
-    if (tokenData?.data?.accessToken) {
-      config.headers.Authorization = `Bearer ${tokenData.data.accessToken}`;
+    const token = await getStoredToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -25,9 +52,36 @@ axiosClient.interceptors.response.use(
     const { response, config } = error;
 
     if (response?.status === 401) {
-      await signOut();
-      window.location.href = "/";
-      return Promise.reject(error);
+      const originalRequest = config;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          const tokenData = await getAccessToken({ providerId: "google" });
+          const newToken = tokenData?.data?.accessToken;
+          if (newToken) {
+            localStorage.setItem("accessToken", newToken);
+            onRefreshed(newToken);
+            isRefreshing = false;
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            return axiosClient(originalRequest);
+          }
+        } catch (refreshError) {
+          isRefreshing = false;
+          refreshSubscribers = []; // Clear any pending subscribers
+          await logOut();
+          window.location.href = "/";
+          return Promise.reject(refreshError);
+        }
+      }
+
+      // If refreshing is in progress, wait for it to complete
+      return new Promise((resolve, reject) => {
+        subscribeTokenRefresh((token: string) => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          resolve(axiosClient(originalRequest));
+        });
+      });
     }
 
     if (response?.status === 403) {

@@ -11,7 +11,9 @@ import { MIME_TYPES } from "@excalidraw/common";
 
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import type { BinaryFiles, UIAppState } from "@excalidraw/excalidraw/types";
+
 import { Locker } from "./Locker";
+import axiosClient from "excalidraw-app/lib/axios-client";
 
 interface GoogleDriveAuthState {
   accessToken: string | null;
@@ -50,18 +52,12 @@ export class GoogleDriveAuthManager {
 }
 
 export const saveToGoogleDrive = async (
-  authManager: GoogleDriveAuthManager,
   elements: readonly ExcalidrawElement[],
   appState: UIAppState,
   files: BinaryFiles,
   name: string,
-): Promise<{ success: boolean; fileId?: string; error?: Error }> => {
+): Promise<{ success: boolean; fileId: string; error?: Error }> => {
   try {
-    const accessToken = authManager.getAccessToken();
-    if (!accessToken) {
-      throw new Error("No access token");
-    }
-
     const serialized = serializeAsJSON(elements, appState, files, "database");
     const blob = new Blob([serialized], {
       type: MIME_TYPES.excalidraw,
@@ -98,60 +94,37 @@ export const saveToGoogleDrive = async (
       body.length + fileData.byteLength,
     );
 
-    const response = await fetch(
+    const { data: response } = await axiosClient.post(
       `${DRIVE_API_UPLOAD_BASE}/files?uploadType=multipart`,
+      finalBody,
       {
-        method: "POST",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": `multipart/related; boundary=${boundary}`,
-          "Content-Length": finalBody.length.toString(),
         },
-        body: finalBody,
       },
     );
 
-    if (!response.ok) {
-      throw new Error(`Upload failed: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    return { success: true, fileId: result.id };
+    return { success: true, fileId: response.id };
   } catch (error) {
     return {
       success: false,
+      fileId: "",
       error: error instanceof Error ? error : new Error(String(error)),
     };
   }
 };
 
 export const loadFromGoogleDrive = async (
-  authManager: GoogleDriveAuthManager,
   fileId: string,
 ): Promise<{ success: boolean; data?: Blob; error?: Error }> => {
   try {
-    const accessToken = authManager.getAccessToken();
-    if (!accessToken) {
-      throw new Error("No access token");
-    }
-
-    const response = await fetch(
+    const { data: response } = await axiosClient.get(
       `${DRIVE_API_BASE}/files/${fileId}?alt=media`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
     );
 
-    if (!response.ok) {
-      throw new Error(`Download failed: ${response.statusText}`);
-    }
-
-    const buf = await response.arrayBuffer();
     return {
       success: true,
-      data: new Blob([buf]),
+      data: new Blob([JSON.stringify(response)]),
     };
   } catch (error) {
     return {
@@ -162,7 +135,6 @@ export const loadFromGoogleDrive = async (
 };
 
 export const updateGoogleDriveFile = async (
-  authManager: GoogleDriveAuthManager,
   fileId: string,
   elements: readonly ExcalidrawElement[],
   appState: UIAppState,
@@ -171,11 +143,6 @@ export const updateGoogleDriveFile = async (
   thumbnailBlob?: Blob,
 ): Promise<{ success: boolean; fileId?: string; error?: Error }> => {
   try {
-    const accessToken = authManager.getAccessToken();
-    if (!accessToken) {
-      throw new Error("No access token");
-    }
-
     const serialized = serializeAsJSON(elements, appState, files, "local");
     const blob = new Blob([serialized], {
       type: MIME_TYPES.excalidraw,
@@ -227,25 +194,17 @@ export const updateGoogleDriveFile = async (
       body.length + fileData.byteLength,
     );
 
-    const response = await fetch(
+    const { data: response } = await axiosClient.patch(
       `${DRIVE_API_UPLOAD_BASE}/files/${fileId}?uploadType=multipart`,
+      finalBody,
       {
-        method: "PATCH",
         headers: {
-          Authorization: `Bearer ${accessToken}`,
           "Content-Type": `multipart/related; boundary=${boundary}`,
-          "Content-Length": finalBody.length.toString(),
         },
-        body: finalBody,
       },
     );
 
-    if (!response.ok) {
-      throw new Error(`Update failed: ${response.statusText}`);
-    }
-
-    const result = await response.json();
-    return { success: true, fileId: result.id };
+    return { success: true, fileId: response.id };
   } catch (error) {
     return {
       success: false,
@@ -255,7 +214,6 @@ export const updateGoogleDriveFile = async (
 };
 
 export const listGoogleDriveFiles = async (
-  authManager: GoogleDriveAuthManager,
   pageSize: number = 1000,
   pageToken?: string,
 ): Promise<{
@@ -271,11 +229,6 @@ export const listGoogleDriveFiles = async (
   error?: Error;
 }> => {
   try {
-    const accessToken = authManager.getAccessToken();
-    if (!accessToken) {
-      throw new Error("No access token");
-    }
-
     const params = new URLSearchParams({
       // Consider adding 'appDataFolder' in parents and
       q: "name contains '.excalidraw' and trashed=false",
@@ -286,20 +239,9 @@ export const listGoogleDriveFiles = async (
       orderBy: "modifiedTime desc",
     });
 
-    const response = await fetch(
+    const { data: result } = await axiosClient.get(
       `${DRIVE_API_BASE}/files?${params.toString()}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      },
     );
-
-    if (!response.ok) {
-      throw new Error(`List failed: ${response.statusText}`);
-    }
-
-    const result = await response.json();
     return {
       success: true,
       files: result.files ?? [],
@@ -331,7 +273,6 @@ export class GoogleDrive {
   };
 }
 
-export const googleDriveAuthAtom = atom<GoogleDriveAuthManager | null>(null);
 export const googleDriveFilesAtom = atom<
   Array<{
     id: string;

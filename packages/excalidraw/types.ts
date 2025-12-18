@@ -363,7 +363,6 @@ export interface AppState {
     | "compactArrowProperties"
     | null;
   openSidebar: { name: SidebarName; tab?: SidebarTabName } | null;
-  openSidebarLeft: { isOpen: boolean };
   openDialog:
     | null
     | { name: "imageExport" | "help" | "jsonExport" }

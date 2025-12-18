@@ -1,21 +1,22 @@
-import React, { useState, useEffect } from "react";
-import { DrawingsModal, type Drawing } from "./DrawingsModal";
-import { listGoogleDriveFiles } from "../data/googleDrive";
+import React, { useState } from "react";
+
+import { ExpandIcon } from "@excalidraw/excalidraw/components/icons";
+
+import { DrawingsModal } from "./DrawingsModal";
+
+import "./DrawingsModal.scss";
+
 import type { GoogleDriveAuthManager } from "../data/googleDrive";
 import type { SidebarItem } from "./AppSidebarLeft";
 
 interface DrawingsModalButtonProps {
-  authManager: GoogleDriveAuthManager | null;
-  onSelectDrawing: (drawing: Drawing) => void;
+  onSelectDrawing: (drawing: SidebarItem) => void;
   drawings: SidebarItem[];
-  children?: React.ReactNode;
 }
 
 export const DrawingsModalButton: React.FC<DrawingsModalButtonProps> = ({
-  authManager,
   onSelectDrawing,
   drawings,
-  children = "Open Drawing",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,9 +26,9 @@ export const DrawingsModalButton: React.FC<DrawingsModalButtonProps> = ({
       <button
         onClick={() => setIsOpen(true)}
         className="drawings-modal-trigger"
-        title="Open a drawing"
+        title="Expand"
       >
-        {children}
+        {ExpandIcon}
       </button>
 
       <DrawingsModal

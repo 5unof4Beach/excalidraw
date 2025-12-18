@@ -141,11 +141,7 @@ import "./index.scss";
 import { AppSidebar } from "./components/AppSidebar";
 import { ExcalidrawSignin } from "./components/ExcalidrawSignin";
 
-import {
-  googleDriveSaveStatusAtom,
-  handleGoogleDriveUpdate,
-  GoogleDrive,
-} from "./data/googleDrive";
+import useBetterAuth from "./hooks/useBetterAuth";
 
 import type { CollabAPI } from "./collab/Collab";
 
@@ -353,6 +349,8 @@ const ExcalidrawWrapper = () => {
   const [langCode, setLangCode] = useAppLangCode();
 
   const editorInterface = useEditorInterface();
+
+  const { session, refetch, isPending } = useBetterAuth();
 
   // initial state
   // ---------------------------------------------------------------------------
@@ -584,6 +582,10 @@ const ExcalidrawWrapper = () => {
       ) {
         syncData();
       }
+
+      if (!session && !isPending) {
+        refetch();
+      }
     };
 
     window.addEventListener(EVENT.HASHCHANGE, onHashChange, false);
@@ -602,7 +604,7 @@ const ExcalidrawWrapper = () => {
         false,
       );
     };
-  }, [isCollabDisabled, collabAPI, excalidrawAPI, setLangCode]);
+  }, [isCollabDisabled, collabAPI, excalidrawAPI, setLangCode, session]);
 
   useEffect(() => {
     const unloadHandler = (event: BeforeUnloadEvent) => {
@@ -678,18 +680,6 @@ const ExcalidrawWrapper = () => {
         elements,
         window.devicePixelRatio,
       );
-    }
-
-    // Use appJotaiStore.get(...) to get the latest value inside this hot path without
-    // causing re-renders.
-    if (!GoogleDrive.isSavePaused()) {
-      const googleDriveUpdateStatus = appJotaiStore.get(
-        googleDriveSaveStatusAtom,
-      );
-      if (googleDriveUpdateStatus === "idle") {
-        const fn = appJotaiStore.get(handleGoogleDriveUpdate);
-        fn?.();
-      }
     }
   };
 
@@ -821,7 +811,7 @@ const ExcalidrawWrapper = () => {
     <>
       <div className="left-sb-root"></div>
       <div
-        style={{ height: "100%", marginLeft: 320 }}
+        style={{ height: "100%" }}
         className={clsx("excalidraw-app", {
           "is-collaborating": isCollaborating,
         })}
@@ -878,9 +868,7 @@ const ExcalidrawWrapper = () => {
             return (
               <div className="excalidraw-ui-top-right">
                 {excalidrawAPI?.getEditorInterface().formFactor ===
-                  "desktop" && (
-                  <ExcalidrawSignin isSignedIn={isExcalidrawPlusSignedUser} />
-                )}
+                  "desktop" && <ExcalidrawSignin />}
 
                 {collabError.message && (
                   <CollabError collabError={collabError} />

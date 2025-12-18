@@ -1,5 +1,5 @@
 import {
-  PlusPromoIcon,
+  PlusIcon,
   searchIcon,
   LockedIcon,
 } from "@excalidraw/excalidraw/components/icons";
@@ -9,11 +9,9 @@ import { DefaultSidebarLeft } from "@excalidraw/excalidraw/components/DefaultSid
 import { useTunnels } from "@excalidraw/excalidraw/context/tunnels";
 import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { GoogleDriveData } from "excalidraw-app/data/googleDriveManager";
+import { useEffect, useRef, useState } from "react";
 import {
   currentFile,
-  googleDriveAuthAtom,
   googleDriveSaveStatusAtom,
   handleGoogleDriveUpdate,
   listGoogleDriveFiles,
@@ -21,19 +19,15 @@ import {
   saveToGoogleDrive,
   updateGoogleDriveFile,
   GoogleDrive,
-  type GoogleDriveAuthManager,
 } from "excalidraw-app/data/googleDrive";
-import { getAccessToken } from "excalidraw-app/lib/auth-client";
 
 import { actionLoadSceneFromFile } from "@excalidraw/excalidraw/actions/actionExport";
 
-import { useSetAtom, useAtomValue } from "excalidraw-app/app-jotai";
+import { useSetAtom, useAtomValue, useAtom } from "excalidraw-app/app-jotai";
 import {
   generateThumbnail,
   prepareElementsForExport,
 } from "@excalidraw/excalidraw/data";
-
-import { cloneJSON, debounce } from "@excalidraw/common";
 
 import {
   getCachedThumbnail,
@@ -52,7 +46,6 @@ import type {
   AppClassProperties,
   UIAppState,
 } from "@excalidraw/excalidraw/types";
-import type { ActionManager } from "@excalidraw/excalidraw/actions/manager";
 
 import { Tooltip } from "@excalidraw/excalidraw/components/Tooltip";
 
@@ -65,6 +58,10 @@ import {
   animals,
 } from "unique-names-generator";
 
+import type { ActionManager } from "@excalidraw/excalidraw/actions/manager";
+
+import _ from "lodash";
+
 import "./AppSidebar.scss";
 import { DrawingsModalButton } from "./DrawingsModalButton";
 
@@ -72,7 +69,6 @@ export interface SidebarItem {
   id: string;
   name: string | null;
   modifiedTime: string;
-  mimeType: string;
   thumbnailLink?: string | null;
 }
 
@@ -116,22 +112,21 @@ const DashboardLink: React.FC = () => (
 const PrivateSection: React.FC<{
   drawings: SidebarItem[];
   author: string;
-  authManager: GoogleDriveAuthManager;
   actionManager: ActionManager;
   downloadTriggerOriginRef: React.RefObject<string | null>;
   updateFunction: (id: string) => void;
+  updateDrawingsFn: (item: SidebarItem) => void;
 }> = ({
   drawings,
   author,
-  authManager,
   actionManager,
   downloadTriggerOriginRef,
   updateFunction,
+  updateDrawingsFn,
 }) => {
   const selectedFile = useAtomValue(currentFile);
   const setSelectedFile = useSetAtom(currentFile);
-  const updateStatus = useSetAtom(googleDriveSaveStatusAtom);
-  const cloudStatus = useAtomValue(googleDriveSaveStatusAtom);
+  const [cloudStatus, updateStatus] = useAtom(googleDriveSaveStatusAtom);
 
   const [isLoading, setIsLoading] = useState(false);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
@@ -148,7 +143,6 @@ const PrivateSection: React.FC<{
         if (drawingId) {
           const drawing = drawings.find((d) => d.id === drawingId);
           if (drawing) {
-            downloadTriggerOriginRef.current = "idbLoad";
             downloadDrawing(drawing);
           }
         }
@@ -170,7 +164,7 @@ const PrivateSection: React.FC<{
     setIsLoading(true);
     updateStatus("saving");
 
-    loadFromGoogleDrive(authManager, id)
+    loadFromGoogleDrive(id)
       .then(async (result) => {
         const index = name.lastIndexOf(".excalidraw");
         const strippedName = name.slice(0, index !== -1 ? index : name.length);
@@ -184,15 +178,12 @@ const PrivateSection: React.FC<{
           id,
           name: strippedName,
         });
-        setIsLoading(false);
-        updateStatus("saved");
       })
-      .catch(() => {
-        setIsLoading(false);
-        updateStatus("error");
-      })
+      .catch(() => {})
       .finally(() => {
+        setIsLoading(false);
         updateStatus("idle");
+        GoogleDrive.resumeSave("googleDrive");
       });
   };
 
@@ -212,22 +203,41 @@ const PrivateSection: React.FC<{
       style: "capital",
     });
 
+    setIsLoading(true);
+
     saveToGoogleDrive(
-      authManager,
       emptyScene.elements,
       emptyScene.appState as any,
       emptyScene.files,
       name,
-    ).then((result) => {
-      GoogleDrive.pauseSave("googleDrive");
+    )
+      .then((result) => {
+        GoogleDrive.pauseSave("googleDrive");
+        const { fileId: id } = result;
 
-      actionManager.executeAction(actionLoadSceneFromFile, "ui", {
-        file: new Blob([JSON.stringify(emptyScene)], {
-          type: "application/json",
-        }),
-        name,
+        setSelectedFile({
+          id,
+          name,
+        });
+
+        actionManager.executeAction(actionLoadSceneFromFile, "ui", {
+          file: new Blob([JSON.stringify(emptyScene)], {
+            type: "application/json",
+          }),
+          name,
+        });
+
+        updateDrawingsFn({
+          id,
+          modifiedTime: new Date().toISOString(),
+          name,
+          thumbnailLink: null,
+        });
+      })
+      .finally(() => {
+        GoogleDrive.resumeSave("googleDrive");
+        setIsLoading(false);
       });
-    });
   };
 
   const handleClick = (item: SidebarItem) => {
@@ -253,20 +263,30 @@ const PrivateSection: React.FC<{
   const hoveredItem = drawings.find((item) => item.id === hoveredItemId);
 
   return (
-    <>
-      <DrawingsModalButton
-        authManager={authManager}
-        onSelectDrawing={handleClick}
-        drawings={drawings}
-      />
-      <button onClick={createNewDrawing}>New</button>
-      <div className="sidebar-section">
-        <div className="sidebar-drawings-list">
-          <Virtuoso
-            style={{ height: "100%" }}
-            totalCount={drawings.length}
-            data={drawings}
-            itemContent={(_, item) => (
+    <div className="sidebar-section">
+      <div className="sidebar-actions">
+        <DrawingsModalButton
+          onSelectDrawing={handleClick}
+          drawings={drawings}
+        />
+        <button
+          className="sidebar-create-new"
+          onClick={createNewDrawing}
+          title="Create new drawing"
+        >
+          {PlusIcon}
+        </button>
+      </div>
+      <div className="sidebar-drawings-list">
+        <Virtuoso
+          style={{ height: "100%" }}
+          className="virtuoso"
+          totalCount={drawings.length}
+          data={drawings}
+          itemContent={(_, item) => (
+            <div
+              style={{ paddingBottom: "0.312rem", paddingRight: "0.225rem" }}
+            >
               <Tooltip
                 key={item.id}
                 label={`Last modified: ${new Date(
@@ -319,27 +339,27 @@ const PrivateSection: React.FC<{
                   </div>
                 </button>
               </Tooltip>
-            )}
+            </div>
+          )}
+        />
+      </div>
+
+      {hoveredItem && hoveredItem.thumbnailLink && (
+        <div
+          className="sidebar-preview-modal"
+          style={{
+            top: `${previewPos.top}px`,
+            left: `${previewPos.left}px`,
+          }}
+        >
+          <img
+            src={hoveredItem.thumbnailLink}
+            alt={hoveredItem.name || undefined}
+            className="sidebar-preview-modal__image"
           />
         </div>
-
-        {hoveredItem && hoveredItem.thumbnailLink && (
-          <div
-            className="sidebar-preview-modal"
-            style={{
-              top: `${previewPos.top}px`,
-              left: `${previewPos.left}px`,
-            }}
-          >
-            <img
-              src={hoveredItem.thumbnailLink}
-              alt={hoveredItem.name || undefined}
-              className="sidebar-preview-modal__image"
-            />
-          </div>
-        )}
-      </div>
-    </>
+      )}
+    </div>
   );
 };
 
@@ -350,13 +370,10 @@ export const AppSidebarLeft: React.FC<{
   actionManager: ActionManager;
 }> = ({ elements, appState, app, actionManager }) => {
   const { LeftSidebar } = useTunnels();
-  const { openSidebarLeft } = useUIAppState();
   const { session, isPending } = useBetterAuth();
 
-  const setAuthManager = useSetAtom(googleDriveAuthAtom);
-  const authManager = useAtomValue(googleDriveAuthAtom);
   const currentDrawing = useAtomValue(currentFile);
-  const updateStatus = useSetAtom(googleDriveSaveStatusAtom);
+  const [googleDriveStatus, updateStatus] = useAtom(googleDriveSaveStatusAtom);
 
   const [drawings, setDrawings] = useState<SidebarItem[]>([]);
 
@@ -372,30 +389,12 @@ export const AppSidebarLeft: React.FC<{
     false,
   );
 
-  useEffect(() => {
-    if (authManager) {
-      return;
-    }
-
-    const fetchAccessToken = async () => {
-      const tokenData = await getAccessToken({ providerId: "google" });
-      if (!tokenData?.data) {
-        return;
-      }
-      const googleDriveData = new GoogleDriveData(tokenData.data);
-      setAuthManager(googleDriveData.getAuthManager());
-    };
-    fetchAccessToken();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authManager]);
+  const filteredAppState = _.pick(appState, drawingAttributes);
+  const prevAppState = useRef(filteredAppState);
 
   useEffect(() => {
-    if (!authManager) {
-      return;
-    }
-
     const fetchFiles = async () => {
-      const data = await listGoogleDriveFiles(authManager);
+      const data = await listGoogleDriveFiles();
 
       // Load cached thumbnails for each file
       const filesWithThumbnails = await Promise.all(
@@ -412,49 +411,49 @@ export const AppSidebarLeft: React.FC<{
     };
 
     fetchFiles();
-  }, [authManager]);
+  }, [session]);
 
   useEffect(() => {
-    if (!authManager || !currentDrawing) {
+    if (!currentDrawing) {
       return;
     }
-
-    GoogleDrive.pauseSave("googleDrive");
 
     if (downloadTriggerOriginRef.current === "onClickLoad") {
       downloadTriggerOriginRef.current = null;
       return;
     }
 
-    handleUpdate(currentDrawing.id, undefined);
+    handleUpdate(currentDrawing.id, undefined, "name change");
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appState.name]);
 
   useEffect(() => {
-    if (
-      !authManager ||
-      !currentDrawing ||
-      currentDrawing.name !== appState.name
-    ) {
+    if (_.isEqual(prevAppState.current, filteredAppState)) {
       return;
     }
 
-    if (downloadTriggerOriginRef.current === "idbLoad") {
-      downloadTriggerOriginRef.current = null;
+    prevAppState.current = filteredAppState;
+
+    if (!currentDrawing || currentDrawing.name !== appState.name) {
       return;
     }
 
-    GoogleDrive.resumeSave("googleDrive");
-    setHandleGoogleDriveUpdate(() => () => {
-      handleUpdate(currentDrawing.id, currentDrawing.name);
-    });
+    if (googleDriveStatus === "idle" && !GoogleDrive.isSavePaused()) {
+      handleUpdate(currentDrawing.id, currentDrawing.name, "Global app state");
+    }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDrawing, appState]);
+  }, [currentDrawing, filteredAppState]);
 
-  const handleUpdate = (drawingId: string, name?: string) => {
-    if (!authManager || !drawingId) {
+  const handleUpdate = (
+    drawingId: string,
+    name?: string,
+    updatedBy?: string,
+  ) => {
+    console.log({ updatedBy });
+
+    if (!drawingId) {
       return;
     }
     updateStatus("saving");
@@ -481,7 +480,6 @@ export const AppSidebarLeft: React.FC<{
       });
 
       updateGoogleDriveFile(
-        authManager,
         drawingId,
         elements,
         appState,
@@ -495,7 +493,6 @@ export const AppSidebarLeft: React.FC<{
               id: fileId,
               name: name || appState.name,
               modifiedTime: new Date().toISOString(),
-              mimeType: "application/vnd.excalidraw+json",
               thumbnailLink: await getCachedThumbnail(fileId),
             };
 
@@ -504,14 +501,17 @@ export const AppSidebarLeft: React.FC<{
               return [updatedFile, ...filtered];
             });
           }
-          updateStatus("saved");
         })
-        .catch(() => {
-          updateStatus("error");
-        })
+        .catch(() => {})
         .finally(() => {
           updateStatus("idle");
         });
+    });
+  };
+
+  const insertDrawingToList = (item: SidebarItem) => {
+    setDrawings((prev) => {
+      return [item, ...prev];
     });
   };
 
@@ -521,15 +521,15 @@ export const AppSidebarLeft: React.FC<{
         <div className="sidebar-left-content">
           <div className="sidebar-scroll-area">
             <UserProfile session={session} isPending={isPending} />
-            <QuickSearch />
-            {authManager && drawings.length > 0 && (
+            {/* <QuickSearch /> */}
+            {drawings.length > 0 && (
               <PrivateSection
                 drawings={drawings}
                 author={session?.user.name || ""}
-                authManager={authManager}
                 actionManager={actionManager}
                 downloadTriggerOriginRef={downloadTriggerOriginRef}
                 updateFunction={handleUpdate}
+                updateDrawingsFn={insertDrawingToList}
               />
             )}
           </div>
@@ -540,3 +540,57 @@ export const AppSidebarLeft: React.FC<{
     </LeftSidebar.In>
   );
 };
+
+const drawingAttributes: (keyof UIAppState)[] = [
+  "activeEmbeddable",
+  "newElement",
+  "resizingElement",
+  "multiElement",
+  "selectionElement",
+  "isBindingEnabled",
+  "frameToHighlight",
+  "frameRendering",
+  "editingFrame",
+  "elementsToHighlight",
+  "editingTextElement",
+  "activeTool",
+  "preferredSelectionTool",
+  "penMode",
+  "penDetected",
+  "currentItemStrokeColor",
+  "currentItemBackgroundColor",
+  "currentItemFillStyle",
+  "currentItemStrokeWidth",
+  "currentItemStrokeStyle",
+  "currentItemRoughness",
+  "currentItemOpacity",
+  "currentItemFontFamily",
+  "currentItemFontSize",
+  "currentItemTextAlign",
+  "currentItemStartArrowhead",
+  "currentItemEndArrowhead",
+  "currentHoveredFontFamily",
+  "currentItemRoundness",
+  "currentItemArrowType",
+  "isResizing",
+  "isRotating",
+  "selectedElementIds",
+  "hoveredElementIds",
+  "previousSelectedElementIds",
+  "selectedElementsAreBeingDragged",
+  "gridSize",
+  "gridStep",
+  "gridModeEnabled",
+  "selectedGroupIds",
+  "editingGroupId",
+  "currentChartType",
+  "selectedLinearElement",
+  "snapLines",
+  "originSnapOffset",
+  "objectsSnapModeEnabled",
+  "isCropping",
+  "croppingElementId",
+  "searchMatches",
+  "activeLockedId",
+  "lockedMultiSelections",
+];

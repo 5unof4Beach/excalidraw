@@ -1,11 +1,13 @@
 import clsx from "clsx";
 
-import { useUIAppState } from "../../context/ui-appState";
-import { useExcalidrawSetAppState } from "../App";
+import { useAtom } from "excalidraw-app/app-jotai";
+
+import { leftSidebarStateAtom } from "./sidebar-left-state";
 
 import "./SidebarTrigger.scss";
 
 import type { SidebarTriggerProps } from "./common";
+import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
 
 export const SidebarTriggerLeft = ({
   name,
@@ -17,38 +19,37 @@ export const SidebarTriggerLeft = ({
   className,
   style,
 }: SidebarTriggerProps) => {
-  const setAppState = useExcalidrawSetAppState();
-  const appState = useUIAppState();
+  const [sideBarState, setSideBarState] = useAtom(leftSidebarStateAtom);
+  const { session } = useBetterAuth();
 
   return (
-    <label title={title} className="sidebar-trigger__label-element">
-      <input
-        className="ToolIcon_type_checkbox"
-        type="checkbox"
-        onChange={(event) => {
-          document
-            .querySelector(".layer-ui__wrapper")
-            ?.classList.remove("animate");
-          const isOpen = event.target.checked;
-          setAppState({
-            openSidebarLeft: { isOpen: !isOpen },
-            openMenu: null,
-            openPopup: null,
-          });
-          onToggle?.(isOpen);
-        }}
-        checked={!appState.openSidebarLeft.isOpen}
-        aria-label={title}
-        aria-keyshortcuts="0"
-        onClickCapture={(e) => {
-          e.preventDefault();
-        }}
-      />
-      <div className={clsx("sidebar-trigger", className)} style={style}>
-        {icon && <div>{icon}</div>}
-        {children && <div className="sidebar-trigger__label">{children}</div>}
-      </div>
-    </label>
+    session && (
+      <label title={title} className="sidebar-trigger__label-element">
+        <input
+          className="ToolIcon_type_checkbox"
+          type="checkbox"
+          onChange={(event) => {
+            document
+              .querySelector(".layer-ui__wrapper")
+              ?.classList.remove("animate");
+            const isOpen = event.target.checked;
+            setSideBarState((prev) => {
+              return {
+                isOpen: !prev.isOpen,
+              };
+            });
+            onToggle?.(isOpen);
+          }}
+          checked={!sideBarState.isOpen}
+          aria-label={title}
+          aria-keyshortcuts="0"
+        />
+        <div className={clsx("sidebar-trigger", className)} style={style}>
+          {icon && <div>{icon}</div>}
+          {children && <div className="sidebar-trigger__label">{children}</div>}
+        </div>
+      </label>
+    )
   );
 };
 SidebarTriggerLeft.displayName = "SidebarTriggerLeft";

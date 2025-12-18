@@ -6,4 +6,9 @@ export const authClient = createAuthClient({
   baseURL,
 });
 
+export const logOut = async () => {
+  await signOut();
+  localStorage.removeItem("accessToken");
+};
+
 export const { signOut, useSession, getAccessToken } = authClient;

@@ -17,6 +17,10 @@ import {
   updateObject,
 } from "@excalidraw/common";
 
+import { useAtom } from "excalidraw-app/app-jotai";
+
+import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
+
 import { useUIAppState } from "../../context/ui-appState";
 import { atom, useSetAtom } from "../../editor-jotai";
 import { useOutsideClick } from "../../hooks/useOutsideClick";
@@ -33,6 +37,8 @@ import { SidebarTab } from "./SidebarTab";
 import "./SidebarLeft.scss";
 
 import { SidebarTriggerLeft } from "./SidebarTriggerLeft";
+
+import { leftSidebarStateAtom } from "./sidebar-left-state";
 
 import type { SidebarProps, SidebarPropsContextValue } from "./common";
 
@@ -104,7 +110,6 @@ export const SidebarInner = forwardRef(
 
       // Prevent closing if any dialog is open
       if (isDialogOpen) {
-        return;
       }
       // setAppState({ openSidebar: null });
     }, [setAppState]);
@@ -162,25 +167,8 @@ SidebarInner.displayName = "SidebarInner";
 
 export const SidebarLeft = Object.assign(
   forwardRef((props: SidebarProps, ref: React.ForwardedRef<HTMLDivElement>) => {
-    const appState = useUIAppState();
-    const { openSidebarLeft } = appState;
-
-    const { onStateChange } = props;
-
-    // useEffect(() => {
-    //   if (
-    //     // closing sidebar
-    //     !appState.openSidebar ||
-    //     // opening current sidebar
-    //     appState.openSidebar?.name === props.name
-    //   ) {
-    //     onStateChange?.(
-    //       appState.openSidebar?.name !== props.name
-    //         ? null
-    //         : appState.openSidebar,
-    //     );
-    //   }
-    // }, [appState.openSidebar, onStateChange, props.name]);
+    const [sideBarState, setSideBarState] = useAtom(leftSidebarStateAtom);
+    const { session } = useBetterAuth();
 
     const [mounted, setMounted] = useState(false);
     useLayoutEffect(() => {
@@ -200,7 +188,7 @@ export const SidebarLeft = Object.assign(
     // Alternative, and more general solution would be to namespace the fallback
     // HoC so that state is not shared between subcomponents when the wrapping
     // component is of the same type (e.g. Sidebar -> SidebarHeader).
-    const shouldRender = mounted && openSidebarLeft.isOpen;
+    const shouldRender = mounted && sideBarState.isOpen && session;
 
     if (!shouldRender) {
       return null;

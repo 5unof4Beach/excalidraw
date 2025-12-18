@@ -63,7 +63,6 @@ export const DrawingsModal: React.FC<DrawingsModalProps> = ({
     <div className="drawings-modal-overlay" onClick={onClose}>
       <div className="drawings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="drawings-modal__header">
-          <h2 className="drawings-modal__title">My Drawings</h2>
           <button
             className="drawings-modal__close"
             onClick={onClose}
@@ -118,9 +117,10 @@ export const DrawingsModal: React.FC<DrawingsModalProps> = ({
             //   }}
             // />
             <VirtuosoMasonry
-              columnCount={3}
-              data={drawings}
               style={{ height: "80vh" }}
+              className="virtuoso"
+              columnCount={4}
+              data={drawings}
               initialItemCount={drawings.length}
               context={{ handleSelectDrawing }}
               ItemContent={({ context, index, data: drawing }) => {
@@ -152,7 +152,12 @@ const DrawingItem: React.FC<DrawingItemProps> = ({
   onSelect,
 }) => {
   return (
-    <div style={{ padding: "0.25rem", backgroundColor: "transparent" }}>
+    <div
+      style={{
+        padding: "0 0.25rem 0.5rem 0.25rem",
+        backgroundColor: "transparent",
+      }}
+    >
       <button
         className={clsx("drawing-card", {
           "drawing-card--selected": isSelected,

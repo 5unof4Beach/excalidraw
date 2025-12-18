@@ -13,8 +13,10 @@ import {
   googleDriveSaveStatusAtom,
 } from "excalidraw-app/data/googleDrive";
 
-import "./CloudSaveStatus.scss";
 import Spinner from "@excalidraw/excalidraw/components/Spinner";
+
+import "./CloudSaveStatus.scss";
+import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
 
 interface CloudSaveStatusProps {
   fileName: string;
@@ -32,6 +34,8 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(fileName);
   const status = useAtomValue(googleDriveSaveStatusAtom);
+  const { session } = useBetterAuth();
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -92,41 +96,34 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
   };
 
   return (
-    <CloudSaveStatus.In>
-      <div
-        className="cloud-save-status"
-        onClickCapture={(e) => {
-          e.preventDefault();
-          GoogleDrive.pauseSave("googleDrive");
-        }}
-      >
-        <div className="cloud-save-status__content">
-          <input
-            ref={inputRef}
-            type="text"
-            value={editedName}
-            onChange={(e) => setEditedName(e.target.value)}
-            onBlur={handleSave}
-            onKeyDown={handleKeyDown}
-            onClickCapture={(e) => {
-              GoogleDrive.pauseSave("googleDrive");
-            }}
-            className="cloud-save-status__input"
-            placeholder="Enter file name"
-            id="drawing-title"
-          />
-        </div>
+    session && (
+      <CloudSaveStatus.In>
+        <div className="cloud-save-status">
+          <div className="cloud-save-status__content">
+            <input
+              ref={inputRef}
+              type="text"
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
+              onBlur={handleSave}
+              onKeyDown={handleKeyDown}
+              className="cloud-save-status__input"
+              placeholder="Enter file name"
+              id="drawing-title"
+            />
+          </div>
 
-        <div
-          className={clsx(
-            "cloud-save-status__status",
-            `cloud-save-status__status--${status}`,
-          )}
-        >
-          <div className="cloud-save-status__icon">{getStatusIcon()}</div>
+          <div
+            className={clsx(
+              "cloud-save-status__status",
+              `cloud-save-status__status--${status}`,
+            )}
+          >
+            <div className="cloud-save-status__icon">{getStatusIcon()}</div>
+          </div>
         </div>
-      </div>
-    </CloudSaveStatus.In>
+      </CloudSaveStatus.In>
+    )
   );
 };
 
