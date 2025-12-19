@@ -4,6 +4,9 @@ const baseURL = import.meta.env.VITE_APP_BETTER_AUTH_URL || null;
 
 export const authClient = createAuthClient({
   baseURL,
+  fetchOptions: {
+    credentials: "include",
+  },
 });
 
 export const logOut = async () => {
