@@ -43,7 +43,6 @@ export const DrawingsModal: React.FC<DrawingsModalProps> = ({
 
   const MansoryItemContent = memo(
     ({ context, index, drawing }: MasonryItemProps) => {
-      console.log("Rendering drawing in masonry:", drawing.id);
       const selectedFile = useAtomValue(currentFile);
       return (
         <DrawingItem
@@ -185,7 +184,9 @@ const DrawingItem: React.FC<DrawingItemProps> = ({
           <p className="drawing-card__name" title={drawing.name ?? ""}>
             {drawing.name}
           </p>
-          <p className="drawing-card__time">{drawing.modifiedTime}</p>
+          <p className="drawing-card__time">
+            {new Date(drawing.modifiedTime).toLocaleString()}
+          </p>
         </div>
       </button>
     </div>

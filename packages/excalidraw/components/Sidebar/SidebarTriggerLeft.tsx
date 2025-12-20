@@ -2,12 +2,13 @@ import clsx from "clsx";
 
 import { useAtom } from "excalidraw-app/app-jotai";
 
+import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
+
 import { leftSidebarStateAtom } from "./sidebar-left-state";
 
 import "./SidebarTrigger.scss";
 
 import type { SidebarTriggerProps } from "./common";
-import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
 
 export const SidebarTriggerLeft = ({
   name,
@@ -24,7 +25,7 @@ export const SidebarTriggerLeft = ({
 
   return (
     session && (
-      <label title={title} className="sidebar-trigger__label-element">
+      <label title={title} className="sidebar-left-trigger__label-element">
         <input
           className="ToolIcon_type_checkbox"
           type="checkbox"

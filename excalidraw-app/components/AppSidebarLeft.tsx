@@ -40,13 +40,6 @@ import {
   setCurrentlyOpenedDrawing,
 } from "excalidraw-app/data/currentDrawingCache";
 
-import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
-
-import type {
-  AppClassProperties,
-  UIAppState,
-} from "@excalidraw/excalidraw/types";
-
 import { Tooltip } from "@excalidraw/excalidraw/components/Tooltip";
 
 import { Virtuoso } from "react-virtuoso";
@@ -54,13 +47,17 @@ import { Virtuoso } from "react-virtuoso";
 import {
   uniqueNamesGenerator,
   adjectives,
-  colors,
   animals,
 } from "unique-names-generator";
 
-import type { ActionManager } from "@excalidraw/excalidraw/actions/manager";
-
 import _ from "lodash";
+
+import type {
+  AppClassProperties,
+  UIAppState,
+} from "@excalidraw/excalidraw/types";
+import type { ActionManager } from "@excalidraw/excalidraw/actions/manager";
+import type { NonDeletedExcalidrawElement } from "@excalidraw/element/types";
 
 import "./AppSidebar.scss";
 import { DrawingsModalButton } from "./DrawingsModalButton";
@@ -109,6 +106,24 @@ const DashboardLink: React.FC = () => (
   </div>
 );
 
+const generateEmptyDrawing = () => {
+  const name = uniqueNamesGenerator({
+    dictionaries: [adjectives, animals],
+    separator: " ",
+    style: "capital",
+  });
+
+  return {
+    type: "excalidraw",
+    version: 2,
+    source: "excalidraw",
+    elements: [],
+    appState: {},
+    files: {},
+    name,
+  };
+};
+
 const PrivateSection: React.FC<{
   drawings: SidebarItem[];
   author: string;
@@ -124,8 +139,7 @@ const PrivateSection: React.FC<{
   updateFunction,
   updateDrawingsFn,
 }) => {
-  const selectedFile = useAtomValue(currentFile);
-  const setSelectedFile = useSetAtom(currentFile);
+  const [selectedFile, setSelectedFile] = useAtom(currentFile);
   const [cloudStatus, updateStatus] = useAtom(googleDriveSaveStatusAtom);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -137,6 +151,9 @@ const PrivateSection: React.FC<{
   useEffect(() => {
     //Strict mode causes double invocation of useEffect in dev mode which fucks up the
     // update behavior parent useEffect
+    function openTopListDrawing() {
+      downloadDrawing(drawings[0]);
+    }
 
     if (readyRef.current) {
       getCurrentlyOpenedDrawing().then((drawingId) => {
@@ -144,8 +161,12 @@ const PrivateSection: React.FC<{
           const drawing = drawings.find((d) => d.id === drawingId);
           if (drawing) {
             downloadDrawing(drawing);
+            return;
           }
+          openTopListDrawing();
+          return;
         }
+        openTopListDrawing();
       });
     }
 
@@ -188,20 +209,7 @@ const PrivateSection: React.FC<{
   };
 
   const createNewDrawing = () => {
-    const emptyScene = {
-      type: "excalidraw",
-      version: 2,
-      source: "excalidraw",
-      elements: [],
-      appState: {},
-      files: {},
-    };
-
-    const name = uniqueNamesGenerator({
-      dictionaries: [adjectives, colors, animals],
-      separator: " ",
-      style: "capital",
-    });
+    const { name, ...emptyScene } = generateEmptyDrawing();
 
     setIsLoading(true);
 
@@ -278,6 +286,12 @@ const PrivateSection: React.FC<{
         </button>
       </div>
       <div className="sidebar-drawings-list">
+        {drawings.length === 0 && (
+          <span className="guide-text">
+            No drawings to show yet. Start editting the canvas and a new drawing
+            wil be created automaticallly
+          </span>
+        )}
         <Virtuoso
           style={{ height: "100%" }}
           className="virtuoso"
@@ -372,12 +386,10 @@ export const AppSidebarLeft: React.FC<{
   const { LeftSidebar } = useTunnels();
   const { session, isPending } = useBetterAuth();
 
-  const currentDrawing = useAtomValue(currentFile);
+  const [currentDrawing, setSelectedFile] = useAtom(currentFile);
   const [googleDriveStatus, updateStatus] = useAtom(googleDriveSaveStatusAtom);
 
-  const [drawings, setDrawings] = useState<SidebarItem[]>([]);
-
-  const setHandleGoogleDriveUpdate = useSetAtom(handleGoogleDriveUpdate);
+  const [drawings, setDrawings] = useState<SidebarItem[] | null>(null);
 
   const downloadTriggerOriginRef = useRef<"idbLoad" | "onClickLoad" | null>(
     null,
@@ -446,14 +458,21 @@ export const AppSidebarLeft: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDrawing, filteredAppState]);
 
+  useEffect(() => {
+    if (drawings && drawings.length === 0 && googleDriveStatus === "idle") {
+      createNewDrawing();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawings]);
+
   const handleUpdate = (
     drawingId: string,
     name?: string,
     updatedBy?: string,
   ) => {
-    console.log({ updatedBy });
+    // console.log({ updatedBy });
 
-    if (!drawingId) {
+    if (!drawings) {
       return;
     }
     updateStatus("saving");
@@ -474,7 +493,7 @@ export const AppSidebarLeft: React.FC<{
         viewBackgroundColor: appState?.viewBackgroundColor ?? "#ffffff",
         exportingFrame,
       },
-    ).then(async (blob) => {
+    ).then(async ([blob, smallBlob]) => {
       blobToDataUrl(blob).then((dataUrl: string) => {
         cacheThumbnail(drawingId, dataUrl);
       });
@@ -485,7 +504,7 @@ export const AppSidebarLeft: React.FC<{
         appState,
         app.files,
         name,
-        blob,
+        smallBlob,
       )
         .then(async ({ fileId }) => {
           if (fileId) {
@@ -497,6 +516,9 @@ export const AppSidebarLeft: React.FC<{
             };
 
             setDrawings((prev) => {
+              if (!prev) {
+                return prev;
+              }
               const filtered = prev.filter((f) => f.id !== updatedFile.id);
               return [updatedFile, ...filtered];
             });
@@ -511,8 +533,53 @@ export const AppSidebarLeft: React.FC<{
 
   const insertDrawingToList = (item: SidebarItem) => {
     setDrawings((prev) => {
+      if (!prev) {
+        return prev;
+      }
       return [item, ...prev];
     });
+  };
+
+  const createNewDrawing = () => {
+    GoogleDrive.pauseSave("googleDrive");
+    updateStatus("saving");
+
+    const { name, ...emptyScene } = generateEmptyDrawing();
+
+    saveToGoogleDrive(
+      emptyScene.elements,
+      emptyScene.appState as any,
+      emptyScene.files,
+      name,
+    )
+      .then((result) => {
+        GoogleDrive.pauseSave("googleDrive");
+
+        const { fileId: id } = result;
+
+        setSelectedFile({
+          id,
+          name,
+        });
+
+        actionManager.executeAction(actionLoadSceneFromFile, "ui", {
+          file: new Blob([JSON.stringify(emptyScene)], {
+            type: "application/json",
+          }),
+          name,
+        });
+
+        insertDrawingToList({
+          id,
+          modifiedTime: new Date().toISOString(),
+          name,
+          thumbnailLink: null,
+        });
+      })
+      .finally(() => {
+        GoogleDrive.resumeSave("googleDrive");
+        updateStatus("idle");
+      });
   };
 
   return (
@@ -522,7 +589,7 @@ export const AppSidebarLeft: React.FC<{
           <div className="sidebar-scroll-area">
             <UserProfile session={session} isPending={isPending} />
             {/* <QuickSearch /> */}
-            {drawings.length > 0 && (
+            {drawings && (
               <PrivateSection
                 drawings={drawings}
                 author={session?.user.name || ""}
@@ -533,8 +600,6 @@ export const AppSidebarLeft: React.FC<{
               />
             )}
           </div>
-
-          <UserProfile session={session} isPending={isPending} />
         </div>
       </DefaultSidebarLeft>
     </LeftSidebar.In>

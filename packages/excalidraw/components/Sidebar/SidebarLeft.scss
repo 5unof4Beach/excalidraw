@@ -208,12 +208,6 @@
     object-fit: cover;
   }
 
-  .sidebar-user-name {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--color-text);
-  }
-
   .sidebar-quick-search {
     display: flex;
     align-items: center;
@@ -563,7 +557,8 @@
   }
 
   .sidebar-user-name {
-    font-size: 1rem;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 0.95rem;
     font-weight: 500;
     color: var(--color-gray-900);
   }
@@ -758,6 +753,13 @@
       background: var(--color-gray-400);
       cursor: not-allowed;
     }
+  }
+
+  .guide-text {
+    text-align: center;
+    padding: 1.25rem;
+    font-weight: 500;
+    color: var(--color-primary-darker);
   }
 
   --sidebar-font-family: "Assistant", -apple-system, BlinkMacSystemFont,
@@ -1050,6 +1052,7 @@
   pointer-events: none;
   animation: slideIn 0.2s ease-out;
   max-width: 300px;
+  max-height: 300px;
   overflow: hidden;
   object-fit: contain;
 

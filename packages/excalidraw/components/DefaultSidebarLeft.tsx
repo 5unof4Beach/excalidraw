@@ -9,6 +9,8 @@ import { useUIAppState } from "../context/ui-appState";
 
 import "../components/dropdownMenu/DropdownMenu.scss";
 
+import "./DefaultSidebarLeft.scss";
+
 import { useExcalidrawSetAppState } from "./App";
 import { withInternalFallback } from "./hoc/withInternalFallback";
 
@@ -27,7 +29,7 @@ const DefaultSidebarLeftTrigger = withInternalFallback(
       <DefaultSidebarLeftTriggerTunnel.In>
         <SidebarLeft.Trigger
           {...props}
-          className="default-sidebar-trigger"
+          className="default-sidebar-left-trigger"
           name={LEFT_SIDEBAR.name}
         />
       </DefaultSidebarLeftTriggerTunnel.In>

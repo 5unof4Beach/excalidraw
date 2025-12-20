@@ -230,26 +230,44 @@ export const generateThumbnail = async (
     viewBackgroundColor: string;
     exportingFrame: ExcalidrawFrameLikeElement | null;
   },
-): Promise<Blob> => {
-  const tempCanvas = exportToCanvas(elements, appState, files, {
+): Promise<[Blob, Blob]> => {
+  const tempCanvas = await exportToCanvas(elements, appState, files, {
     exportBackground,
     viewBackgroundColor,
     exportPadding,
     exportingFrame,
   });
 
-  let blob = canvasToBlob(tempCanvas);
+  const resizedCanvas = document.createElement("canvas");
+  const ctx = resizedCanvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Failed to get canvas context");
+  }
 
-  // if (appState.exportEmbedScene) {
-  //   blob = blob.then((blob) =>
-  //     import("./image").then(({ encodePngMetadata }) =>
-  //       encodePngMetadata({
-  //         blob,
-  //         metadata: serializeAsJSON(elements, appState, files, "local"),
-  //       }),
-  //     ),
-  //   );
-  // }
+  const targetWidth = 220; // Predefined width; adjust as needed
+  const targetHeight = 220; // Predefined height; adjust as needed
 
-  return blob;
+  resizedCanvas.width = targetWidth;
+  resizedCanvas.height = targetHeight;
+
+  // Calculate scale to cover the target (min scale to fill, then crop)
+  const scale = Math.max(
+    targetWidth / tempCanvas.width,
+    targetHeight / tempCanvas.height,
+  );
+  const scaledWidth = tempCanvas.width * scale;
+  const scaledHeight = tempCanvas.height * scale;
+
+  // Center-crop offsets
+  const offsetX = (targetWidth - scaledWidth) / 2;
+  const offsetY = (targetHeight - scaledHeight) / 2;
+
+  ctx.drawImage(tempCanvas, offsetX, offsetY, scaledWidth, scaledHeight);
+
+  const blob = canvasToBlob(tempCanvas);
+  const smallBlob = canvasToBlob(resizedCanvas);
+
+  const res = Promise.all([blob, smallBlob]);
+
+  return res;
 };

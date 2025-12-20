@@ -53,7 +53,7 @@ import MainMenu from "./main-menu/MainMenu";
 import { ActiveConfirmDialog } from "./ActiveConfirmDialog";
 import { useEditorInterface, useStylesPanelMode } from "./App";
 import { OverwriteConfirmDialog } from "./OverwriteConfirm/OverwriteConfirm";
-import { pencilIcon, sidebarRightIcon } from "./icons";
+import { sidebarLeftIcon, sidebarRightIcon } from "./icons";
 import { DefaultSidebar } from "./DefaultSidebar";
 import { TTDDialog } from "./TTDDialog/TTDDialog";
 import { Stats } from "./Stats";
@@ -88,6 +88,7 @@ import type {
 
 import { currentFile } from "excalidraw-app/data/googleDrive";
 import { leftSidebarStateAtom } from "./Sidebar/sidebar-left-state";
+import useBetterAuth from "excalidraw-app/hooks/useBetterAuth";
 
 interface LayerUIProps {
   actionManager: ActionManager;
@@ -474,6 +475,7 @@ const LayerUI = ({
   const isSidebarDocked = useAtomValue(isSidebarDockedAtom);
   const currentDrawing = useAppAtomValue(currentFile);
   const { isOpen: isLeftSidebarOpen } = useAppAtomValue(leftSidebarStateAtom);
+  const { session } = useBetterAuth();
 
   const layerUIJSX = (
     <>
@@ -514,8 +516,8 @@ const LayerUI = ({
       />
       <DefaultSidebarLeft.Trigger
         __fallback
-        icon={pencilIcon}
-        title={capitalizeString(t("toolBar.library"))}
+        icon={sidebarLeftIcon}
+        title={capitalizeString("Drawings")}
         onToggle={(open) => {
           if (open) {
             trackEvent(
@@ -661,7 +663,7 @@ const LayerUI = ({
                     width: `calc(100% - var(--right-sidebar-width) - 300px)`,
                     marginLeft: "300px",
                   }
-                : isLeftSidebarOpen
+                : isLeftSidebarOpen && session
                 ? {
                     width: `calc(100% - 300px)`,
                     marginLeft: "300px",

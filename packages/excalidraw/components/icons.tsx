@@ -2354,6 +2354,15 @@ export const sidebarRightIcon = createIcon(
   tablerIconProps,
 );
 
+export const sidebarLeftIcon = createIcon(
+  <g strokeWidth="1.75">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
+    <path d="M9 4l0 16" />
+  </g>,
+  tablerIconProps,
+);
+
 export const messageCircleIcon = createIcon(
   <g strokeWidth="1.25">
     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -2456,7 +2465,7 @@ export const CloudIcon = createIcon(
 );
 
 export const ExpandIcon = createIcon(
-  <svg fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg fill="#000000" xmlns="http://www.w3.org/2000/svg">
     <g id="SVGRepo_bgCarrier" strokeWidth="0"></g>
     <g
       id="SVGRepo_tracerCarrier"
