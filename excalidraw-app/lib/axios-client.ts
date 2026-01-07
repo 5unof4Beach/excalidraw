@@ -3,7 +3,7 @@ import axios from "axios";
 import { getAccessToken, logOut } from "./auth-client";
 
 const axiosClient = axios.create({
-  timeout: 10000,
+  timeout: 30000,
 });
 
 let isRefreshing = false;
