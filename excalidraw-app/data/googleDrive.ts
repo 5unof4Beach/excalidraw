@@ -51,13 +51,70 @@ export class GoogleDriveAuthManager {
   }
 }
 
+const getOrCreateExcalidrawFolder = async (): Promise<{
+  success: boolean;
+  folderId?: string;
+  error?: Error;
+}> => {
+  try {
+    // Check if Excalidraw folder already exists
+    const params = new URLSearchParams({
+      q: "name='Excalidraw' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+      fields: "files(id)",
+      pageSize: "1",
+    });
+
+    const { data: searchResult } = await axiosClient.get(
+      `${DRIVE_API_BASE}/files?${params.toString()}`,
+    );
+
+    if (searchResult.files && searchResult.files.length > 0) {
+      return { success: true, folderId: searchResult.files[0].id };
+    }
+
+    // Folder doesn't exist, create it
+    const folderMetadata = JSON.stringify({
+      name: "Excalidraw",
+      mimeType: "application/vnd.google-apps.folder",
+    });
+
+    const { data: createResult } = await axiosClient.post(
+      `${DRIVE_API_BASE}/files?fields=id`,
+      folderMetadata,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    return { success: true, folderId: createResult.id };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+};
+
 export const saveToGoogleDrive = async (
   elements: readonly ExcalidrawElement[],
   appState: UIAppState,
   files: BinaryFiles,
   name: string,
+  parentFolderId?: string,
 ): Promise<{ success: boolean; fileId: string; error?: Error }> => {
   try {
+    // Get or create Excalidraw folder if no parent is specified
+    let folderId = parentFolderId;
+    if (!folderId) {
+      const folderResult = await getOrCreateExcalidrawFolder();
+      if (!folderResult.success || !folderResult.folderId) {
+        throw new Error("Failed to get or create Excalidraw folder");
+      }
+      folderId = folderResult.folderId;
+    }
+
     const serialized = serializeAsJSON(elements, appState, files, "database");
     const blob = new Blob([serialized], {
       type: MIME_TYPES.excalidraw,
@@ -70,6 +127,7 @@ export const saveToGoogleDrive = async (
         `${appState.name}.excalidraw` ||
         "Untitled.excalidraw",
       mimeType: MIME_TYPES.excalidraw,
+      parents: [folderId],
     });
 
     const body = new Uint8Array(
@@ -141,7 +199,11 @@ export const updateGoogleDriveFile = async (
   files: BinaryFiles,
   name?: string,
   thumbnailBlob?: Blob,
-): Promise<{ success: boolean; fileId?: string; error?: Error }> => {
+): Promise<{
+  success: boolean;
+  data: { id: string; name: string; modifiedTime: string };
+  error?: Error;
+}> => {
   try {
     const serialized = serializeAsJSON(elements, appState, files, "local");
     const blob = new Blob([serialized], {
@@ -194,8 +256,8 @@ export const updateGoogleDriveFile = async (
       body.length + fileData.byteLength,
     );
 
-    const { data: response } = await axiosClient.patch(
-      `${DRIVE_API_UPLOAD_BASE}/files/${fileId}?uploadType=multipart`,
+    const { data } = await axiosClient.patch(
+      `${DRIVE_API_UPLOAD_BASE}/files/${fileId}?uploadType=multipart&fields=id,name,modifiedTime`,
       finalBody,
       {
         headers: {
@@ -204,7 +266,50 @@ export const updateGoogleDriveFile = async (
       },
     );
 
-    return { success: true, fileId: response.id };
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      data: null as any,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+};
+
+export const deleteGoogleDriveFile = async (
+  fileId: string,
+): Promise<{ success: boolean; error?: Error }> => {
+  try {
+    await axiosClient.delete(`${DRIVE_API_BASE}/files/${fileId}`);
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+};
+
+export const getGoogleDriveFileMetadata = async (
+  fileId: string,
+): Promise<{
+  success: boolean;
+  modifiedTime?: string;
+  error?: Error;
+}> => {
+  try {
+    const params = new URLSearchParams({
+      fields: "modifiedTime",
+    });
+
+    const { data: result } = await axiosClient.get(
+      `${DRIVE_API_BASE}/files/${fileId}?${params.toString()}`,
+    );
+
+    return {
+      success: true,
+      modifiedTime: result.modifiedTime,
+    };
   } catch (error) {
     return {
       success: false,
@@ -230,8 +335,7 @@ export const listGoogleDriveFiles = async (
 }> => {
   try {
     const params = new URLSearchParams({
-      // Consider adding 'appDataFolder' in parents and
-      q: "name contains '.excalidraw' and trashed=false",
+      q: "mimeType = 'application/vnd.excalidraw+json' and trashed=false",
       fields:
         "files(id,name,mimeType,modifiedTime,parents,owners,appProperties, thumbnailLink), nextPageToken",
       pageSize: pageSize.toString(),

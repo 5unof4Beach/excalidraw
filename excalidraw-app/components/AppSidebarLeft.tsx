@@ -1,9 +1,8 @@
 import {
   PlusIcon,
   searchIcon,
-  LockedIcon,
+  TrashIcon,
 } from "@excalidraw/excalidraw/components/icons";
-import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 import { DefaultSidebarLeft } from "@excalidraw/excalidraw/components/DefaultSidebarLeft";
 
 import { useTunnels } from "@excalidraw/excalidraw/context/tunnels";
@@ -13,17 +12,18 @@ import { useEffect, useRef, useState } from "react";
 import {
   currentFile,
   googleDriveSaveStatusAtom,
-  handleGoogleDriveUpdate,
   listGoogleDriveFiles,
   loadFromGoogleDrive,
   saveToGoogleDrive,
   updateGoogleDriveFile,
   GoogleDrive,
+  deleteGoogleDriveFile,
+  getGoogleDriveFileMetadata,
 } from "excalidraw-app/data/googleDrive";
 
 import { actionLoadSceneFromFile } from "@excalidraw/excalidraw/actions/actionExport";
 
-import { useSetAtom, useAtomValue, useAtom } from "excalidraw-app/app-jotai";
+import { useAtom } from "excalidraw-app/app-jotai";
 import {
   generateThumbnail,
   prepareElementsForExport,
@@ -64,7 +64,7 @@ import { DrawingsModalButton } from "./DrawingsModalButton";
 
 export interface SidebarItem {
   id: string;
-  name: string | null;
+  name: string;
   modifiedTime: string;
   thumbnailLink?: string | null;
 }
@@ -129,15 +129,35 @@ const PrivateSection: React.FC<{
   author: string;
   actionManager: ActionManager;
   downloadTriggerOriginRef: React.RefObject<string | null>;
-  updateFunction: (id: string) => void;
+  updateFn: (
+    id: string,
+    modifiedTime?: string,
+    reason?: string,
+    force?: boolean,
+  ) => void;
   updateDrawingsFn: (item: SidebarItem) => void;
+  setDrawingsFn: React.Dispatch<React.SetStateAction<SidebarItem[] | null>>;
+  loadedDrawingModifiedTimeRef: React.RefObject<{
+    [key: string]: string;
+  } | null>;
+  updateConflictId: { id: string; modifiedTime: string } | null;
+  setUpdateConflictId: React.Dispatch<
+    React.SetStateAction<{
+      id: string;
+      modifiedTime: string;
+    } | null>
+  >;
 }> = ({
   drawings,
   author,
   actionManager,
   downloadTriggerOriginRef,
-  updateFunction,
+  updateFn,
   updateDrawingsFn,
+  setDrawingsFn,
+  loadedDrawingModifiedTimeRef,
+  updateConflictId,
+  setUpdateConflictId,
 }) => {
   const [selectedFile, setSelectedFile] = useAtom(currentFile);
   const [cloudStatus, updateStatus] = useAtom(googleDriveSaveStatusAtom);
@@ -145,6 +165,7 @@ const PrivateSection: React.FC<{
   const [isLoading, setIsLoading] = useState(false);
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
   const [previewPos, setPreviewPos] = useState({ top: 0, left: 0 });
+  const [preDeleteId, setPreDeleteId] = useState<string | null>(null);
 
   const readyRef = useRef(true);
 
@@ -176,31 +197,42 @@ const PrivateSection: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const downloadDrawing = ({ id, name }: SidebarItem) => {
+  const downloadDrawing = (
+    { id, name, modifiedTime }: SidebarItem,
+    force = false,
+  ) => {
     if ((selectedFile && selectedFile.id === id) || !name) {
-      return;
+      if (!force) {
+        return;
+      }
     }
 
     GoogleDrive.pauseSave("googleDrive");
     setIsLoading(true);
     updateStatus("saving");
 
+    const index = name.lastIndexOf(".excalidraw");
+    const strippedName = name.slice(0, index !== -1 ? index : name.length);
+
+    const prevSelectedFile = selectedFile;
+    setSelectedFile({
+      id,
+      name: strippedName,
+    });
+
     loadFromGoogleDrive(id)
       .then(async (result) => {
-        const index = name.lastIndexOf(".excalidraw");
-        const strippedName = name.slice(0, index !== -1 ? index : name.length);
         await setCurrentlyOpenedDrawing(id);
+        loadedDrawingModifiedTimeRef.current = { [id]: modifiedTime };
 
         actionManager.executeAction(actionLoadSceneFromFile, "ui", {
           file: result.data || new Blob(),
           name: strippedName,
         });
-        setSelectedFile({
-          id,
-          name: strippedName,
-        });
       })
-      .catch(() => {})
+      .catch(() => {
+        setSelectedFile(prevSelectedFile);
+      })
       .finally(() => {
         setIsLoading(false);
         updateStatus("idle");
@@ -228,6 +260,8 @@ const PrivateSection: React.FC<{
           name,
         });
 
+        loadedDrawingModifiedTimeRef.current = null;
+
         actionManager.executeAction(actionLoadSceneFromFile, "ui", {
           file: new Blob([JSON.stringify(emptyScene)], {
             type: "application/json",
@@ -250,10 +284,84 @@ const PrivateSection: React.FC<{
 
   const handleClick = (item: SidebarItem) => {
     if (selectedFile) {
-      updateFunction(selectedFile.id);
+      updateFn(selectedFile.id);
     }
     downloadTriggerOriginRef.current = "onClickLoad";
     downloadDrawing(item);
+  };
+
+  const handleDelete = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    itemId: string,
+  ) => {
+    e.stopPropagation();
+    setPreDeleteId(itemId);
+  };
+
+  const handleConflictResolution = (
+    choice: "overwrite" | "reload",
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    e.stopPropagation();
+
+    switch (choice) {
+      case "overwrite":
+        if (updateConflictId) {
+          updateFn(updateConflictId.id, undefined, "conflict overwrite", true);
+        }
+        break;
+      case "reload":
+        if (updateConflictId && drawings) {
+          const drawing = drawings.find((d) => d.id === updateConflictId.id);
+          if (drawing) {
+            downloadDrawing(
+              { ...drawing, modifiedTime: updateConflictId.modifiedTime },
+              true,
+            );
+          }
+        }
+        break;
+    }
+    setUpdateConflictId(null);
+  };
+
+  const handleDeleteConfirm = (
+    selection: "yes" | "no",
+    e: React.MouseEvent<HTMLButtonElement>,
+  ) => {
+    e.stopPropagation();
+
+    switch (selection) {
+      case "yes":
+        if (preDeleteId) {
+          GoogleDrive.pauseSave("googleDrive");
+          updateStatus("saving");
+
+          deleteGoogleDriveFile(preDeleteId)
+            .then(() => {
+              setDrawingsFn((prev) => {
+                if (!prev) {
+                  return prev;
+                }
+                return prev.filter((item) => item.id !== preDeleteId);
+              });
+
+              if (selectedFile?.id === preDeleteId) {
+                setSelectedFile(null);
+              }
+            })
+            .catch(() => {})
+            .finally(() => {
+              GoogleDrive.resumeSave("googleDrive");
+              updateStatus("idle");
+              setPreDeleteId(null);
+            });
+        }
+        break;
+      case "no":
+        setPreDeleteId(null);
+        break;
+    }
   };
 
   const handleMouseEnter = (
@@ -313,7 +421,8 @@ const PrivateSection: React.FC<{
                     selectedFile?.id === item.id
                       ? "sidebar-drawing-item--selected"
                       : ""
-                  } ${isLoading ? "sidebar-drawing-item--loading" : ""}`}
+                  }
+                  ${isLoading ? "sidebar-drawing-item--loading" : ""}`}
                   onClick={() => handleClick(item)}
                   onMouseEnter={(e) => handleMouseEnter(e, item.id)}
                   onMouseLeave={() => setHoveredItemId(null)}
@@ -348,9 +457,32 @@ const PrivateSection: React.FC<{
                     </p>
                   </div>
 
-                  <div className="sidebar-drawing-item__action">
-                    {LockedIcon}
-                  </div>
+                  {!(preDeleteId === item.id) && (
+                    <button
+                      className="sidebar-drawing-item__delete-btn"
+                      onClick={(e) => handleDelete(e, item.id)}
+                      title="Delete drawing"
+                      disabled={isLoading || cloudStatus === "saving"}
+                    >
+                      {TrashIcon}
+                    </button>
+                  )}
+                  {preDeleteId === item.id && (
+                    <div className="sidebar-drawing-item__delete-confirmation">
+                      <button
+                        onClick={(e) => handleDeleteConfirm("yes", e)}
+                        disabled={isLoading || cloudStatus === "saving"}
+                      >
+                        Y
+                      </button>
+                      <button
+                        onClick={(e) => handleDeleteConfirm("no", e)}
+                        disabled={isLoading || cloudStatus === "saving"}
+                      >
+                        N
+                      </button>
+                    </div>
+                  )}
                 </button>
               </Tooltip>
             </div>
@@ -373,6 +505,32 @@ const PrivateSection: React.FC<{
           />
         </div>
       )}
+      {updateConflictId && (
+        <div className="sidebar-conflict-dialog">
+          <div className="sidebar-conflict-dialog__content">
+            <h3>Update Conflict Detected</h3>
+            <p>
+              This drawing{" "}
+              {drawings.find((d) => d.id === updateConflictId.id)?.name} was
+              modified on another device or tab. What would you like to do?
+            </p>
+            <div className="sidebar-conflict-dialog__buttons">
+              <button
+                onClick={(e) => handleConflictResolution("reload", e)}
+                className="sidebar-conflict-dialog__reload"
+              >
+                Reload Remote Version
+              </button>
+              <button
+                onClick={(e) => handleConflictResolution("overwrite", e)}
+                className="sidebar-conflict-dialog__overwrite"
+              >
+                Overwrite with Local Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -390,6 +548,13 @@ export const AppSidebarLeft: React.FC<{
   const [googleDriveStatus, updateStatus] = useAtom(googleDriveSaveStatusAtom);
 
   const [drawings, setDrawings] = useState<SidebarItem[] | null>(null);
+  const loadedDrawingModifiedTimeRef = useRef<{
+    [key: string]: string;
+  } | null>(null);
+  const [updateConflictId, setUpdateConflictId] = useState<{
+    id: string;
+    modifiedTime: string;
+  } | null>(null);
 
   const downloadTriggerOriginRef = useRef<"idbLoad" | "onClickLoad" | null>(
     null,
@@ -469,14 +634,49 @@ export const AppSidebarLeft: React.FC<{
     drawingId: string,
     name?: string,
     updatedBy?: string,
+    force = false,
   ) => {
     // console.log({ updatedBy });
 
     if (!drawings) {
       return;
     }
+
     updateStatus("saving");
 
+    if (
+      loadedDrawingModifiedTimeRef.current &&
+      loadedDrawingModifiedTimeRef.current[drawingId] &&
+      !force
+    ) {
+      getGoogleDriveFileMetadata(drawingId)
+        .then((result) => {
+          if (result.success && result.modifiedTime) {
+            if (
+              result.modifiedTime >
+              (loadedDrawingModifiedTimeRef.current?.[drawingId] || "")
+            ) {
+              setUpdateConflictId({
+                id: drawingId,
+                modifiedTime: result.modifiedTime,
+              });
+              return;
+            }
+          }
+          // No conflict, proceed with update
+          proceedWithUpdate(drawingId, name);
+        })
+        .catch(() => {
+          // On error, proceed with update anyway
+          proceedWithUpdate(drawingId, name);
+        });
+      return;
+    }
+
+    proceedWithUpdate(drawingId, name);
+  };
+
+  const proceedWithUpdate = (drawingId: string, name?: string) => {
     generateThumbnail(
       exportedElements,
       {
@@ -506,13 +706,14 @@ export const AppSidebarLeft: React.FC<{
         name,
         smallBlob,
       )
-        .then(async ({ fileId }) => {
-          if (fileId) {
+        .then(async ({ data }) => {
+          const { id, name, modifiedTime } = data;
+          if (id) {
             const updatedFile: SidebarItem = {
-              id: fileId,
-              name: name || appState.name,
-              modifiedTime: new Date().toISOString(),
-              thumbnailLink: await getCachedThumbnail(fileId),
+              id,
+              name: name || appState.name || "Untitled",
+              modifiedTime,
+              thumbnailLink: await getCachedThumbnail(id),
             };
 
             setDrawings((prev) => {
@@ -522,6 +723,11 @@ export const AppSidebarLeft: React.FC<{
               const filtered = prev.filter((f) => f.id !== updatedFile.id);
               return [updatedFile, ...filtered];
             });
+
+            // Update the loaded modified time to the new value
+            loadedDrawingModifiedTimeRef.current = {
+              [updatedFile.id]: updatedFile.modifiedTime,
+            };
           }
         })
         .catch(() => {})
@@ -595,8 +801,12 @@ export const AppSidebarLeft: React.FC<{
                 author={session?.user.name || ""}
                 actionManager={actionManager}
                 downloadTriggerOriginRef={downloadTriggerOriginRef}
-                updateFunction={handleUpdate}
+                updateFn={handleUpdate}
                 updateDrawingsFn={insertDrawingToList}
+                setDrawingsFn={setDrawings}
+                loadedDrawingModifiedTimeRef={loadedDrawingModifiedTimeRef}
+                updateConflictId={updateConflictId}
+                setUpdateConflictId={setUpdateConflictId}
               />
             )}
           </div>
@@ -611,51 +821,66 @@ const drawingAttributes: (keyof UIAppState)[] = [
   "newElement",
   "resizingElement",
   "multiElement",
-  "selectionElement",
+
   "isBindingEnabled",
   "frameToHighlight",
   "frameRendering",
-  "editingFrame",
+
   "elementsToHighlight",
-  "editingTextElement",
+
   "activeTool",
   "preferredSelectionTool",
-  "penMode",
-  "penDetected",
+
   "currentItemStrokeColor",
   "currentItemBackgroundColor",
   "currentItemFillStyle",
   "currentItemStrokeWidth",
+
   "currentItemStrokeStyle",
   "currentItemRoughness",
   "currentItemOpacity",
   "currentItemFontFamily",
+
   "currentItemFontSize",
   "currentItemTextAlign",
   "currentItemStartArrowhead",
   "currentItemEndArrowhead",
+
   "currentHoveredFontFamily",
   "currentItemRoundness",
   "currentItemArrowType",
   "isResizing",
+
   "isRotating",
   "selectedElementIds",
   "hoveredElementIds",
-  "previousSelectedElementIds",
+
   "selectedElementsAreBeingDragged",
   "gridSize",
   "gridStep",
   "gridModeEnabled",
+
   "selectedGroupIds",
   "editingGroupId",
   "currentChartType",
   "selectedLinearElement",
+
   "snapLines",
   "originSnapOffset",
   "objectsSnapModeEnabled",
   "isCropping",
+
   "croppingElementId",
-  "searchMatches",
   "activeLockedId",
   "lockedMultiSelections",
+
+  //excluded attributes
+
+  // "editingFrame",
+  // "editingTextElement",
+  // "penMode",
+  // "penDetected",
+  // "searchMatches",
+  // "selectionElement",
+  // "previousSelectedElementIds",
 ];

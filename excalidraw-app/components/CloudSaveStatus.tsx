@@ -80,21 +80,6 @@ const CloudSaveStatus: React.FC<CloudSaveStatusProps> = ({
     }
   };
 
-  const getStatusText = () => {
-    switch (status) {
-      case "saving":
-        return "Saving...";
-      case "saved":
-        return lastSavedTime
-          ? `Saved ${formatTime(lastSavedTime)}`
-          : "Saved to cloud";
-      case "error":
-        return "Failed to save";
-      default:
-        return "";
-    }
-  };
-
   return (
     session && (
       <CloudSaveStatus.In>
